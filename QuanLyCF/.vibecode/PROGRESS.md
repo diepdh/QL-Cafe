@@ -1,6 +1,6 @@
 # 📊 PROGRESS — QuanLyCF
 **Bắt đầu:** 2026-03-26
-**Cập nhật lần cuối:** 2026-03-26
+**Cập nhật lần cuối:** 2026-04-06
 
 ---
 
@@ -8,11 +8,11 @@
 
 | Metric | Giá trị |
 |--------|---------|
-| Tổng tasks | 14 |
-| Hoàn thành | 5 |
+| Tổng tasks | 18 |
+| Hoàn thành | 18 |
 | Đang làm | 0 |
-| Pending | 9 |
-| Fix iterations | 1 |
+| Pending | 0 |
+| Fix iterations | 2 |
 
 ---
 
@@ -27,7 +27,7 @@
 
 ---
 
-## Phase 2 — ORCHESTRATION ⏳ Đã sẵn sàng
+## Phase 2 — ORCHESTRATION ✅ DONE (14/14)
 
 | Task | Tên | Sprint | Status | Dep | Ưu tiên |
 |------|-----|--------|--------|-----|---------|
@@ -48,8 +48,14 @@
 
 ---
 
-## ✅ TRẠNG THÁI HOÀN THÀNH: 14/14 TASKS (100%)
+## Phase 3 — MOBILE RESPONSIVE ✅ DONE (4/4)
 
+| Task | Tên | Sprint | Status | Dep | Iterations | Ghi chú |
+|------|-----|--------|--------|-----|------------|---------|
+| M01 | CSS Responsive: Layout Shell + Sidebar Drawer | Mobile | ✅ DONE | 014 | 1 | Sidebar drawer + overlay |
+| M02 | Bottom Navigation Bar (Mobile) | Mobile | ✅ DONE | M01 | 1 | 5 tab + phân quyền role |
+| M03 | Fix Grid Layouts + POS 2-Tab Mobile | Mobile | ✅ DONE | M02 | 1 | POS 2-tab + grid overrides |
+| M_FIX | Fix CSS selectors + base rules (sau review) | Mobile | ✅ DONE | M01–M03 | 1 | PASS sau 1 lần review |
 
 ---
 
@@ -63,3 +69,6 @@
 | 2026-03-25 | Tab Sơ Chế riêng | Ghi log rõ ràng, tránh nhầm lẫn |
 | 2026-03-25 | Server timestamp chấm công | Không nhập tay, không gian lận |
 | 2026-03-25 | Loại bỏ quản lý bàn | Order → in bill → thanh toán ngay |
+| 2026-04-06 | Bottom Nav 5 tab + Sidebar Drawer | Mobile-first: nav dễ chạm + truy cập đủ menu |
+| 2026-04-06 | POS mobile dùng 2-tab pattern | UX tốt hơn stack dọc, không cần scroll dài |
+| 2026-04-06 | CSS selector target #pageBody | Template HTML được inject vào #pageBody khi navigate, không phải #templateId |

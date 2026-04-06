@@ -98,6 +98,13 @@
 
     document.getElementById('posSubtotal').innerText = subtotal.toLocaleString() + 'đ';
     document.getElementById('posTotal').innerText = (total > 0 ? total : 0).toLocaleString() + 'đ';
+
+    // Cập nhật số lượng giỏ hàng trên mobile tab (TASK_M_FIX)
+    const cartCountEl = document.getElementById('posCartCount');
+    if (cartCountEl) {
+      const count = POS_CART.reduce((sum, item) => sum + item.quantity, 0);
+      cartCountEl.innerText = count;
+    }
   }
 
   function submitPosOrder() {

@@ -241,3 +241,4 @@ function switchPosTab(tab) {
 - Hàm `injectPosMobileTabs()` cần gọi trong `navigateTo()` ngay sau khi inject posTemplate HTML, **trước** `loadPosPage()`.
 - `posCartCount` chỉ tồn tại trên mobile. Hàm update count phải kiểm tra `document.getElementById('posCartCount')` trước khi set (để không lỗi trên desktop).
 - Nếu component `orders.html`, `reports.html`, `settings.html`, `recipes.html` có inline style grid → override bằng cùng cách (`!important` trong media query của `app.html`). Chỉ mở rộng sang file component nếu override từ `app.html` không đủ.
+2
