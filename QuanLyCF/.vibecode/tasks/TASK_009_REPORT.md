@@ -1,0 +1,22 @@
+# RESULT REPORT — TASK_009
+- **Objective met:** yes
+- **Files changed/created:**
+  - `src/Inventory.gs` (modified)
+  - `src/Orders.gs` (modified)
+  - `src/pages/app.html` (modified)
+  - `src/pages/components/orders.html` (created)
+- **Diff summary:**
+  - Implemented automatic refined material stock deduction in `Inventory.gs` based on product recipes when an order is completed.
+  - Added backend functions `getOrders`, `completeOrder`, and `cancelOrder` to `Orders.gs`.
+  - Used `LockService` in `completeOrder` for transaction safety.
+  - Created a robust POS UI with product search, category filtering, cart management, discount handling, and order creation.
+  - Implemented an order management list with status and date filters, and actions to complete or cancel pending orders.
+- **Commands/tests run:**
+  - Manual code trace confirmed that `completeOrder` correctly calls `deductStock` and updates stock via `updateStockValue`.
+  - Verified UI responsiveness for POS card layout and order filtering.
+- **Notes/assumptions:**
+  - If a product has no recipe, no stock deduction occurs for that item.
+  - Stock is allowed to go negative (with a potential warning in future tasks).
+- **Risks/known gaps:**
+  - No real-time websocket/polling for new QR orders; rely on manual refresh for now.
+  - No physical receipt printing.

@@ -1,0 +1,19 @@
+# RESULT REPORT — TASK_007
+- **Objective met:** yes
+- **Files changed/created:**
+  - `src/Inventory.gs` (modified)
+  - `src/pages/app.html` (modified)
+  - `src/pages/components/processing.html` (created)
+- **Diff summary:**
+  - Added backend functions `createProcessingLog`, `getProcessingLogs`, and `getProcessingInitData`.
+  - Implemented logic with `LockService` for safe stock updates (decrement raw, increment refined).
+  - Added "Sơ Chế" page with a historical table and a new processing record modal.
+  - Implemented real-time stock and unit display in the processing modal.
+- **Commands/tests run:**
+  - Manual code review of the `LockService` implementation to ensure concurrency safety.
+  - Verified `PROCESSING_LOG` sheet structure: `['log_id', 'raw_material_id', 'raw_qty_used', 'refined_id', 'refined_qty_produced', 'staff_id', 'created_at']`.
+- **Notes/assumptions:**
+  - Assumed `staff_id` is available in the session user object (verified in `Auth.gs`).
+- **Risks/known gaps:**
+  - UI allows only 1-to-1 processing (1 raw to 1 refined) as per "DO NOT" requirement.
+  - No complex conversion formula management; user enters quantities manually.

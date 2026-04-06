@@ -1,0 +1,21 @@
+# RESULT REPORT — TASK_010
+- **Objective met:** yes
+- **Files changed/created:**
+  - `src/Staff.gs` (created)
+  - `src/pages/app.html` (modified)
+  - `src/pages/components/staff.html` (created)
+- **Diff summary:**
+  - Created backend `Staff.gs` for employee CRUD operations and automatic user account generation.
+  - Linked `STAFF` records with `USERS` records using `staff_id`.
+  - Implemented role mapping: manager -> manager, others -> cashier.
+  - Added "Nhân Viên" menu item to the Admin/Manager sidebar.
+  - Created a comprehensive employee management UI with active/inactive filtering and a details modal.
+- **Commands/tests run:**
+  - Verified `STAFF` and `USERS` sheet headers via Python script.
+  - Manual code trace confirmed `createStaff` correctly appends to both sheets.
+- **Notes/assumptions:**
+  - Default password for new employees is `123456` as per technical instructions.
+  - Default username is the employee's phone number (or email if phone is missing).
+- **Risks/known gaps:**
+  - Password change functionality is not included in this task.
+  - No validation for duplicate usernames/phones yet.

@@ -1,0 +1,142 @@
+<script>
+  let REVENUE_CHART = null;
+
+  /**
+   * Khởi tạo trang Báo Cáo
+   */
+  function loadReportsPage() {
+    setReportRange('month');
+  }
+
+  /**
+   * Phím tắt chọn nhanh khoảng thời gian
+   */
+  function setReportRange(range) {
+    const fromInput = document.getElementById('repDateFrom');
+    const toInput = document.getElementById('repDateTo');
+    const now = new Date();
+    
+    let from, to = now;
+
+    if (range === 'today') {
+      from = now;
+    } else if (range === '7days') {
+      from = new Date();
+      from.setDate(now.getDate() - 6);
+    } else if (range === 'month') {
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (range === 'lastMonth') {
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      from = lastMonth;
+      to = new Date(now.getFullYear(), now.getMonth(), 0); // ngày cuối tháng trước
+    }
+
+    fromInput.value = from.toISOString().split('T')[0];
+    toInput.value = to.toISOString().split('T')[0];
+    
+    loadRevenueReport();
+  }
+
+  /**
+   * Tải dữ liệu báo cáo
+   */
+  function loadRevenueReport() {
+    const from = document.getElementById('repDateFrom').value;
+    const to = document.getElementById('repDateTo').value;
+    
+    if (!from || !to) return;
+
+    // Show loading...
+    document.getElementById('repTotalRevenue').innerText = '...';
+    
+    google.script.run.withSuccessHandler(res => {
+      if (res.error) {
+        alert(res.error);
+        return;
+      }
+
+      // 1. Cập nhật KPIs
+      document.getElementById('repTotalRevenue').innerText = Number(res.kpis.totalRevenue).toLocaleString() + 'đ';
+      document.getElementById('repOrderCount').innerText = res.kpis.orderCount;
+      document.getElementById('repAvgOrder').innerText = Number(res.kpis.avgOrderValue).toLocaleString() + 'đ';
+      document.getElementById('repProfit').innerText = Number(res.kpis.estimatedProfit).toLocaleString() + 'đ';
+
+      // 2. Vẽ biểu đồ
+      renderRevenueReportChart(res.chart);
+
+      // 3. Top Sản Phẩm
+      const topBody = document.getElementById('repTopProductsBody');
+      if (res.topProducts.length === 0) {
+        topBody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:var(--text-muted);">Không có dữ liệu</td></tr>';
+      } else {
+        topBody.innerHTML = res.topProducts.map(p => `
+          <tr>
+            <td><div style="font-weight:600;">${p.name}</div></td>
+            <td>${p.qty}</td>
+            <td style="font-weight:600; color:var(--primary);">${p.revenue.toLocaleString()}đ</td>
+          </tr>
+        `).join('');
+      }
+
+      // 4. NVL Tiêu Thụ
+      const usageBody = document.getElementById('repMaterialUsageBody');
+      if (res.materialUsage.length === 0) {
+        usageBody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:var(--text-muted);">Không có dữ liệu sơ chế trong kỳ</td></tr>';
+      } else {
+        usageBody.innerHTML = res.materialUsage.map(m => `
+          <tr>
+            <td><div style="font-weight:600;">${m.name}</div></td>
+            <td style="color:var(--error); font-weight:600;">${m.qty}</td>
+            <td>${m.unit}</td>
+          </tr>
+        `).join('');
+      }
+
+    }).getRevenueReport(STATE.token, from, to);
+  }
+
+  /**
+   * Render Chart.js
+   */
+  function renderRevenueReportChart(data) {
+    const ctx = document.getElementById('revenueReportChart').getContext('2d');
+    
+    if (REVENUE_CHART) {
+      REVENUE_CHART.destroy();
+    }
+
+    REVENUE_CHART = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          label: 'Doanh thu',
+          data: data.data,
+          backgroundColor: 'rgba(124, 58, 237, 0.6)',
+          borderColor: '#7C3AED',
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                if (value >= 1000000) return (value / 1000000) + 'M';
+                if (value >= 1000) return (value / 1000) + 'K';
+                return value;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+</script>

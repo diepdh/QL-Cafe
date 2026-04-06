@@ -1,0 +1,171 @@
+<script>
+  let SELECTED_PRODUCT_ID = null;
+  let REFINED_MATERIALS = [];
+
+  /**
+   * Khởi tạo trang Công Thức
+   */
+  function loadRecipesPage() {
+    // 1. Lấy danh sách NVL Tinh Chế để dùng cho các dropdown sau này
+    google.script.run.withSuccessHandler(data => {
+      if (!Array.isArray(data)) {
+        console.error('Lỗi tải NVL tinh chế:', data);
+        return;
+      }
+      REFINED_MATERIALS = data;
+      // 2. Lấy danh sách sản phẩm
+      loadRecipeProductList();
+    }).getRefinedMaterials(STATE.token);
+  }
+
+  /**
+   * Load danh sách sản phẩm bên trái
+   */
+  function loadRecipeProductList() {
+    google.script.run.withSuccessHandler(products => {
+      const list = document.getElementById('recipeProductList');
+      list.innerHTML = products.map(p => `
+        <div class="nav-item" style="color:var(--text); border:1px solid var(--border); margin-bottom:8px; justify-content:space-between;" 
+             id="prod-item-${p.product_id}"
+             onclick="loadProductRecipe('${p.product_id}', '${p.name}')">
+          <span>${p.name}</span>
+          <i class="fas fa-chevron-right" style="font-size:12px; color:var(--text-muted);"></i>
+        </div>
+      `).join('');
+    }).getProducts(STATE.token);
+  }
+
+  /**
+   * Load công thức của 1 sản phẩm
+   */
+  function loadProductRecipe(productId, productName) {
+    SELECTED_PRODUCT_ID = productId;
+    
+    // Highlight sản phẩm đang chọn
+    document.querySelectorAll('#recipeProductList .nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`prod-item-${productId}`).classList.add('active');
+
+    document.getElementById('recipeTitle').innerText = `Công thức: ${productName}`;
+    document.getElementById('recipeActions').classList.remove('hidden');
+    
+    const tbody = document.getElementById('recipeTableBody');
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>';
+
+    google.script.run.withSuccessHandler(recipe => {
+      tbody.innerHTML = '';
+      if (recipe.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:40px; color:var(--text-muted);">Sản phẩm này chưa có công thức. Nhấn "+ Thêm NVL" để bắt đầu.</td></tr>';
+      } else {
+        recipe.forEach(item => addIngredientRow(item));
+      }
+    }).getRecipeByProduct(STATE.token, productId);
+  }
+
+  /**
+   * Thêm 1 dòng NVL vào bảng
+   */
+  function addIngredientRow(data = null) {
+    const tbody = document.getElementById('recipeTableBody');
+    
+    // Xóa dòng thông báo "Chưa có công thức" nếu có
+    if (tbody.rows.length === 1 && tbody.rows[0].cells.length === 1) {
+      tbody.innerHTML = '';
+    }
+
+    const tr = document.createElement('tr');
+    
+    // Tạo dropdown NVL Tinh Chế
+    let options = REFINED_MATERIALS.map(m => `
+      <option value="${m.refined_id}" data-unit="${m.unit}" ${data && data.refined_id === m.refined_id ? 'selected' : ''}>
+        ${m.name}
+      </option>
+    `).join('');
+
+    tr.innerHTML = `
+      <td>
+        <select class="form-control ing-id" onchange="updateRowUnit(this)">
+          <option value="">-- Chọn nguyên liệu --</option>
+          ${options}
+        </select>
+      </td>
+      <td>
+        <input type="number" class="form-control ing-qty" value="${data ? data.quantity : 1}" step="any" min="0">
+      </td>
+      <td class="ing-unit" style="vertical-align: middle; color:var(--text-muted); font-size:13px;">
+        ${data ? data.unit : '-'}
+      </td>
+      <td style="text-align:right;">
+        <button class="btn btn-outline" style="color:var(--error); border:none; padding:8px;" onclick="this.closest('tr').remove()">
+          <i class="fas fa-trash"></i>
+        </button>
+      </td>
+    `;
+    
+    tbody.appendChild(tr);
+    if (!data) {
+      const select = tr.querySelector('.ing-id');
+      if (select.value) updateRowUnit(select);
+    }
+  }
+
+  /**
+   * Cập nhật đơn vị khi chọn NVL
+   */
+  function updateRowUnit(select) {
+    const unitCell = select.closest('tr').querySelector('.ing-unit');
+    const selectedOption = select.options[select.selectedIndex];
+    const unit = selectedOption.getAttribute('data-unit');
+    unitCell.innerText = unit || '-';
+  }
+
+  /**
+   * Thu thập dữ liệu và lưu
+   */
+  function saveRecipeData() {
+    if (!SELECTED_PRODUCT_ID) return;
+
+    const rows = document.querySelectorAll('#recipeTableBody tr');
+    const ingredients = [];
+    let isValid = true;
+
+    rows.forEach(row => {
+      const id = row.querySelector('.ing-id').value;
+      const qty = row.querySelector('.ing-qty').value;
+      const unit = row.querySelector('.ing-unit').innerText;
+
+      if (id && qty > 0) {
+        ingredients.push({
+          refined_id: id,
+          quantity: Number(qty),
+          unit: unit
+        });
+      } else if (id || qty) {
+        isValid = false;
+      }
+    });
+
+    if (!isValid) {
+      alert('Vui lòng nhập đầy đủ thông tin nguyên liệu và số lượng.');
+      return;
+    }
+
+    if (ingredients.length === 0) {
+      if (!confirm('Công thức trống sẽ xóa công thức hiện tại của sản phẩm này. Bạn có chắc chắn?')) return;
+    }
+
+    const btn = document.querySelector('#recipeActions .btn-primary');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+
+    google.script.run.withSuccessHandler(res => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      if (res.success) {
+        alert('Lưu công thức thành công!');
+      } else {
+        alert('Lỗi: ' + (res.error || 'Không xác định'));
+      }
+    }).saveRecipe(STATE.token, SELECTED_PRODUCT_ID, ingredients);
+  }
+</script>

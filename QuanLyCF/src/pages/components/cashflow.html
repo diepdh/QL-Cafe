@@ -1,0 +1,130 @@
+<script>
+  const CF_CATEGORIES = {
+    income: ['Bán hàng', 'Đầu tư', 'Thu hồi nợ', 'Khác'],
+    expense: ['Điện nước', 'Thuê mặt bằng', 'Lương nhân viên', 'Nhập hàng', 'Vật tư/Dụng cụ', 'Marketing', 'Sửa chữa', 'Khác']
+  };
+
+  /**
+   * Khởi tạo trang Thu Chi
+   */
+  function loadCashflow() {
+    const yearSelect = document.getElementById('cfYearFilter');
+    const monthSelect = document.getElementById('cfMonthFilter');
+    
+    // Khởi tạo filter nếu chưa có
+    if (!yearSelect.options.length) {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      for (let y = currentYear; y >= currentYear - 2; y--) {
+        const opt = document.createElement('option');
+        opt.value = y; opt.text = y;
+        yearSelect.add(opt);
+      }
+      monthSelect.value = now.getMonth() + 1;
+    }
+
+    const year = yearSelect.value;
+    const month = monthSelect.value;
+    const tbody = document.getElementById('cashflowTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>';
+
+    google.script.run.withSuccessHandler(res => {
+      if (res.error) {
+        alert(res.error);
+        return;
+      }
+
+      // Cập nhật KPIs
+      document.getElementById('cfTotalIncome').innerText = res.totalIncome.toLocaleString() + 'đ';
+      document.getElementById('cfTotalExpense').innerText = res.totalExpense.toLocaleString() + 'đ';
+      
+      const netEl = document.getElementById('cfNetCashflow');
+      netEl.innerText = res.netCashflow.toLocaleString() + 'đ';
+      netEl.style.color = res.netCashflow >= 0 ? 'var(--secondary)' : 'var(--error)';
+
+      // Render bảng
+      tbody.innerHTML = res.data.map(r => `
+        <tr>
+          <td>${r.date}</td>
+          <td><span class="badge ${r.type === 'income' ? 'badge-success' : 'badge-danger'}">${r.type === 'income' ? 'Thu' : 'Chi'}</span></td>
+          <td><div style="font-weight:600;">${r.category}</div></td>
+          <td style="font-weight:700; color:${r.type === 'income' ? 'var(--secondary)' : 'var(--error)'};">
+            ${r.type === 'income' ? '+' : '-'}${Number(r.amount).toLocaleString()}đ
+          </td>
+          <td><div style="font-size:12px; color:var(--text-muted);">${r.note || '-'}</div></td>
+          <td>
+            <button class="btn btn-outline" style="padding:4px 8px; font-size:12px; color:var(--error);" onclick="handleDeleteCashflow('${r.cashflow_id}')">
+              <i class="fas fa-trash"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      if (res.data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px; color:var(--text-muted);">Không có giao dịch nào trong tháng này.</td></tr>';
+      }
+    }).getCashflow(STATE.token, year, month);
+  }
+
+  function openCashflowModal() {
+    document.getElementById('cashflowForm').reset();
+    document.getElementById('cf_date').value = new Date().toISOString().split('T')[0];
+    updateCfCategories();
+    document.getElementById('cashflowModal').classList.add('open');
+  }
+
+  function updateCfCategories() {
+    const type = document.getElementById('cf_type').value;
+    const select = document.getElementById('cf_category_select');
+    const input = document.getElementById('cf_category');
+    
+    const cats = CF_CATEGORIES[type];
+    select.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    input.value = cats[0];
+  }
+
+  function handleDeleteCashflow(id) {
+    if (!confirm('Bạn có chắc chắn muốn xóa giao dịch này?')) return;
+    
+    google.script.run.withSuccessHandler(res => {
+      if (res.success) {
+        loadCashflow();
+      } else {
+        alert(res.error);
+      }
+    }).deleteCashflow(STATE.token, id);
+  }
+
+  document.getElementById('cashflowForm').onsubmit = function(e) {
+    e.preventDefault();
+    
+    const data = {
+      type: document.getElementById('cf_type').value,
+      category: document.getElementById('cf_category').value,
+      amount: Number(document.getElementById('cf_amount').value),
+      date: document.getElementById('cf_date').value,
+      note: document.getElementById('cf_note').value
+    };
+
+    if (!data.category || data.amount <= 0) {
+      alert('Vui lòng nhập đầy đủ thông tin hợp lệ.');
+      return;
+    }
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ĐANG LƯU...';
+
+    google.script.run.withSuccessHandler(res => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      if (res.success) {
+        closeModal('cashflowModal');
+        loadCashflow();
+      } else {
+        alert(res.error);
+      }
+    }).createCashflow(STATE.token, data);
+  };
+</script>

@@ -1,0 +1,132 @@
+<script>
+  let STAFF_CACHE = [];
+
+  /**
+   * Khởi tạo trang Nhân Viên
+   */
+  function loadStaff() {
+    const showInactive = document.getElementById('showInactiveStaff').checked;
+    const tbody = document.getElementById('staffTableBody');
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải danh sách...</td></tr>';
+
+    google.script.run.withSuccessHandler(data => {
+      if (data.error) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--error);">${data.error}</td></tr>`;
+        return;
+      }
+      
+      STAFF_CACHE = data;
+      let filtered = data;
+      if (!showInactive) {
+        filtered = data.filter(s => s.status === 'active');
+      }
+
+      tbody.innerHTML = filtered.map(s => `
+        <tr>
+          <td><div style="font-weight:600;">${s.full_name}</div><div style="font-size:11px; color:var(--text-muted);">ID: ${s.staff_id}</div></td>
+          <td><span class="badge badge-info">${s.position}</span></td>
+          <td>${s.phone}</td>
+          <td>${s.start_date || '-'}</td>
+          <td>${Number(s.hourly_rate).toLocaleString()}đ</td>
+          <td><span class="badge badge-${s.status === 'active' ? 'success' : 'danger'}">${s.status}</span></td>
+          <td>
+            <div style="display:flex; gap:4px;">
+              <button class="btn btn-outline" style="padding:4px 8px; font-size:12px;" onclick="openStaffModal('${s.staff_id}')"><i class="fas fa-edit"></i></button>
+              ${s.status === 'active' ? `
+                <button class="btn btn-outline" style="padding:4px 8px; font-size:12px; color:var(--error);" onclick="handleDeactivateStaff('${s.staff_id}')"><i class="fas fa-user-slash"></i> Nghỉ việc</button>
+              ` : ''}
+            </div>
+          </td>
+        </tr>
+      `).join('');
+      
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:40px; color:var(--text-muted);">Không tìm thấy nhân viên nào.</td></tr>';
+      }
+    }).getStaff(STATE.token);
+  }
+
+  /**
+   * Mở modal thêm/sửa nhân viên
+   */
+  function openStaffModal(id = null) {
+    const form = document.getElementById('staffForm');
+    form.reset();
+    document.getElementById('staff_id').value = id || '';
+    document.getElementById('staffModalTitle').innerText = id ? 'Sửa Hồ Sơ Nhân Viên' : 'Thêm Nhân Viên Mới';
+
+    if (id) {
+      const s = STAFF_CACHE.find(x => x.staff_id === id);
+      if (s) {
+        document.getElementById('staff_full_name').value = s.full_name;
+        document.getElementById('staff_phone').value = s.phone;
+        document.getElementById('staff_email').value = s.email;
+        document.getElementById('staff_position').value = s.position;
+        document.getElementById('staff_start_date').value = s.start_date;
+        document.getElementById('staff_hourly_rate').value = s.hourly_rate;
+      }
+    }
+    
+    document.getElementById('staffModal').classList.add('open');
+  }
+
+  /**
+   * Xử lý cho nghỉ việc
+   */
+  function handleDeactivateStaff(id) {
+    if (!confirm('Bạn có chắc chắn muốn đánh dấu nhân viên này đã nghỉ việc?')) return;
+    
+    google.script.run.withSuccessHandler(res => {
+      if (res.success) {
+        alert('Cập nhật thành công!');
+        loadStaff();
+      } else {
+        alert('Lỗi: ' + res.error);
+      }
+    }).deactivateStaff(STATE.token, id);
+  }
+
+  /**
+   * Xử lý submit form
+   */
+  document.getElementById('staffForm').onsubmit = function(e) {
+    e.preventDefault();
+    
+    const id = document.getElementById('staff_id').value;
+    const data = {
+      full_name: document.getElementById('staff_full_name').value,
+      phone: document.getElementById('staff_phone').value,
+      email: document.getElementById('staff_email').value,
+      position: document.getElementById('staff_position').value,
+      start_date: document.getElementById('staff_start_date').value,
+      hourly_rate: Number(document.getElementById('staff_hourly_rate').value)
+    };
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+
+    const handler = res => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      if (res.success) {
+        if (!id) {
+          alert(`Thêm nhân viên thành công!\nTài khoản mặc định: ${res.username} / ${res.default_password}\nYêu cầu nhân viên đổi mật khẩu sớm.`);
+        } else {
+          alert('Cập nhật hồ sơ thành công!');
+        }
+        closeModal('staffModal');
+        loadStaff();
+      } else {
+        alert('Lỗi: ' + res.error);
+      }
+    };
+
+    if (id) {
+      google.script.run.withSuccessHandler(handler).updateStaff(STATE.token, id, data);
+    } else {
+      google.script.run.withSuccessHandler(handler).createStaff(STATE.token, data);
+    }
+  };
+</script>

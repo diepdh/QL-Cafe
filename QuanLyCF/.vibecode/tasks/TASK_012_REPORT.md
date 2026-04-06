@@ -1,0 +1,21 @@
+# RESULT REPORT — TASK_012
+- **Objective met:** yes
+- **Files changed/created:**
+  - `src/Cashflow.gs` (created)
+  - `src/pages/app.html` (modified)
+  - `src/pages/components/cashflow.html` (created)
+- **Diff summary:**
+  - Created backend `Cashflow.gs` for cashflow management (CRUD and monthly aggregation).
+  - Implemented monthly filtering logic for transactions.
+  - Added "Thu Chi" menu item to the Admin/Manager sidebar group "Tài chính".
+  - Created a cashflow management UI with monthly KPI cards (Income, Expense, Net Cashflow) and a transaction list.
+  - Implemented a modal form for recording transactions with pre-defined and custom categories.
+- **Commands/tests run:**
+  - Verified `CASHFLOW` sheet headers: `['cashflow_id', 'type', 'category', 'amount', 'note', 'date']`.
+  - Manual code trace confirmed net cashflow calculation: `Total Income - Total Expense`.
+- **Notes/assumptions:**
+  - Revenue from sales (ORDERS) is NOT automatically synced to CASHFLOW as per project constraints (Cashflow is for operational costs and extra income).
+  - Net cashflow color changes dynamically (Green for positive, Red for negative).
+- **Risks/known gaps:**
+  - No monthly closure or reconciliation feature.
+  - Transaction editing is not implemented (only Delete and Add).

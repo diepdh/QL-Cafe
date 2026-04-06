@@ -1,0 +1,196 @@
+<script>
+  let POS_PRODUCTS = [];
+  let POS_CART = [];
+
+  /**
+   * POS LOGIC
+   */
+  function loadPosPage() {
+    google.script.run.withSuccessHandler(data => {
+      POS_PRODUCTS = data.products;
+      renderPosCategories(data.categories);
+      renderPosProducts();
+    }).getPublicMenu(); // Tái sử dụng hàm lấy menu công khai
+  }
+
+  function renderPosCategories(cats) {
+    const select = document.getElementById('posCategoryFilter');
+    select.innerHTML = '<option value="">Tất cả danh mục</option>' + 
+      cats.map(c => `<option value="${c.category_id}">${c.name}</option>`).join('');
+  }
+
+  function filterPosProducts(val) {
+    renderPosProducts(val);
+  }
+
+  function renderPosProducts(search = '') {
+    const grid = document.getElementById('posProductGrid');
+    const catId = document.getElementById('posCategoryFilter').value;
+    
+    let filtered = POS_PRODUCTS;
+    if (catId) filtered = filtered.filter(p => p.category_id === catId);
+    if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+
+    grid.innerHTML = filtered.map(p => `
+      <div class="product-card" style="cursor:pointer; position:relative;" onclick="addToPosCart('${p.product_id}')">
+        <div style="padding:12px;">
+          <div style="font-weight:600; font-size:13px; margin-bottom:4px;">${p.name}</div>
+          <div style="color:var(--primary); font-weight:700; font-size:12px;">${Number(p.price).toLocaleString()}đ</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function addToPosCart(productId) {
+    const product = POS_PRODUCTS.find(p => p.product_id === productId);
+    const existing = POS_CART.find(item => item.product_id === productId);
+    
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      POS_CART.push({
+        product_id: product.product_id,
+        name: product.name,
+        price: Number(product.price),
+        quantity: 1,
+        note: ''
+      });
+    }
+    renderPosCart();
+  }
+
+  function renderPosCart() {
+    const container = document.getElementById('posCartItems');
+    container.innerHTML = POS_CART.map((item, index) => `
+      <div style="padding:12px; border-bottom:1px solid var(--bg); display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:600; font-size:14px;">${item.name}</div>
+          <div class="qty-ctrl">
+            <button class="btn-qty" onclick="changePosQty(${index}, -1)">-</button>
+            <span>${item.quantity}</span>
+            <button class="btn-qty" onclick="changePosQty(${index}, 1)">+</button>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" class="form-control" style="font-size:12px; padding:4px 8px;" placeholder="Ghi chú món..." value="${item.note}" oninput="POS_CART[${index}].note = this.value">
+          <div style="font-weight:700; min-width:80px; text-align:right;">${(item.price * item.quantity).toLocaleString()}đ</div>
+        </div>
+      </div>
+    `).join('');
+    
+    if (POS_CART.length === 0) {
+      container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-muted);">Giỏ hàng trống</div>';
+    }
+    
+    updatePosSummary();
+  }
+
+  function changePosQty(index, delta) {
+    POS_CART[index].quantity += delta;
+    if (POS_CART[index].quantity <= 0) POS_CART.splice(index, 1);
+    renderPosCart();
+  }
+
+  function updatePosSummary() {
+    const subtotal = POS_CART.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const discount = Number(document.getElementById('posDiscount').value) || 0;
+    const total = subtotal - discount;
+
+    document.getElementById('posSubtotal').innerText = subtotal.toLocaleString() + 'đ';
+    document.getElementById('posTotal').innerText = (total > 0 ? total : 0).toLocaleString() + 'đ';
+  }
+
+  function submitPosOrder() {
+    if (POS_CART.length === 0) { alert('Vui lòng chọn món!'); return; }
+    
+    const subtotal = POS_CART.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const discount = Number(document.getElementById('posDiscount').value) || 0;
+    
+    const data = {
+      table_code: document.getElementById('posTableCode').value,
+      source: 'pos',
+      payment_method: document.getElementById('posPaymentMethod').value,
+      subtotal: subtotal,
+      discount: discount,
+      total: subtotal - discount,
+      staff_id: STATE.user.staff_id,
+      items: POS_CART
+    };
+
+    google.script.run.withSuccessHandler(res => {
+      if (res.success) {
+        alert('Tạo đơn hàng thành công!');
+        POS_CART = [];
+        document.getElementById('posTableCode').value = '';
+        document.getElementById('posDiscount').value = '0';
+        renderPosCart();
+      } else {
+        alert('Lỗi: ' + res.error);
+      }
+    }).createOrder(STATE.token, data);
+  }
+
+  /**
+   * ORDERS LIST LOGIC
+   */
+  function loadOrders() {
+    const status = document.getElementById('orderStatusFilter').value;
+    const date = document.getElementById('orderDateFilter').value;
+    const tbody = document.getElementById('ordersTableBody');
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải đơn hàng...</td></tr>';
+
+    google.script.run.withSuccessHandler(orders => {
+      tbody.innerHTML = orders.map(o => `
+        <tr>
+          <td><div style="font-weight:700;">#${o.order_id.split('-').pop()}</div><div style="font-size:11px; color:var(--text-muted);">${o.order_id}</div></td>
+          <td>${o.table_code || '-'}</td>
+          <td>
+            <div style="font-size:13px;">
+              ${o.items.map(i => `<div>${i.product_name} x${i.quantity} ${i.note ? `<small style="color:var(--accent);">(${i.note})</small>` : ''}</div>`).join('')}
+            </div>
+          </td>
+          <td><div style="font-weight:700; color:var(--primary);">${Number(o.total).toLocaleString()}đ</div><div style="font-size:11px; color:var(--text-muted);">Mã: ${o.payment_method || 'N/A'}</div></td>
+          <td><span class="badge ${o.source==='qr'?'badge-info':'badge-success'}">${o.source}</span></td>
+          <td><span class="badge badge-${o.status==='pending'?'warning':(o.status==='completed'?'success':'danger')}">${o.status}</span></td>
+          <td><div style="font-size:12px;">${o.created_at.replace('T', ' ').split('.')[0]}</div></td>
+          <td>
+            ${o.status === 'pending' ? `
+              <div style="display:flex; gap:4px;">
+                <button class="btn btn-primary" style="padding:4px 8px; font-size:12px;" onclick="handleCompleteOrder('${o.order_id}')">Hoàn tất</button>
+                <button class="btn btn-outline" style="padding:4px 8px; font-size:12px; color:var(--error);" onclick="handleCancelOrder('${o.order_id}')">Hủy</button>
+              </div>
+            ` : '-'}
+          </td>
+        </tr>
+      `).join('');
+      
+      if (orders.length === 0) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted);">Không tìm thấy đơn hàng nào.</td></tr>';
+    }).getOrders(STATE.token, { status, date });
+  }
+
+  function handleCompleteOrder(orderId) {
+    const pay = prompt('Chọn phương thức thanh toán:', 'Tiền mặt');
+    if (pay === null) return;
+
+    google.script.run.withSuccessHandler(res => {
+      if (res.success) {
+        alert('Đã hoàn tất đơn hàng và trừ kho!');
+        loadOrders();
+      } else {
+        alert('Lỗi: ' + res.error);
+      }
+    }).completeOrder(STATE.token, orderId, pay);
+  }
+
+  function handleCancelOrder(orderId) {
+    if (!confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) return;
+    google.script.run.withSuccessHandler(res => {
+      if (res.success) {
+        alert('Đã hủy đơn hàng.');
+        loadOrders();
+      } else {
+        alert('Lỗi: ' + res.error);
+      }
+    }).cancelOrder(STATE.token, orderId);
+  }
+</script>

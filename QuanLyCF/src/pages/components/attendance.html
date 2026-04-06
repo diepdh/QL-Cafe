@@ -1,0 +1,197 @@
+<script>
+  let ATTENDANCE_RECORDS = [];
+
+  /**
+   * Khởi tạo trang Chấm Công
+   */
+  function loadAttendancePage() {
+    const isManager = ['admin', 'manager'].includes(STATE.user.role);
+    
+    // Luôn hiển thị phần cá nhân
+    updateAttendanceStatus();
+
+    // Nếu là manager, hiển thị thêm phần lịch sử toàn quán
+    if (isManager) {
+      document.getElementById('managerAttendanceView').classList.remove('hidden');
+      initAttendanceFilters();
+      loadAttendanceHistory();
+    }
+  }
+
+  /**
+   * Cập nhật trạng thái chấm công cá nhân (Nút Vào/Ra ca)
+   */
+  function updateAttendanceStatus() {
+    const statusText = document.getElementById('attStatusText');
+    const statusSub = document.getElementById('attStatusSub');
+    const actionBtn = document.getElementById('attActionBtn');
+
+    statusText.innerText = 'Đang kiểm tra trạng thái...';
+    
+    google.script.run.withSuccessHandler(res => {
+      if (res.error) {
+        statusText.innerText = 'Lỗi kết nối';
+        return;
+      }
+
+      if (res.status === 'none') {
+        statusText.innerText = 'Bạn chưa vào ca hôm nay';
+        statusSub.innerText = 'Vui lòng bấm nút bên dưới để bắt đầu ca làm việc.';
+        actionBtn.innerHTML = `<button class="btn-clock btn-clock-in" onclick="handleClockIn()">🟢 VÀO CA</button>`;
+      } 
+      else if (res.status === 'in_shift') {
+        const timeIn = res.record.time_in.split('T')[1].substring(0, 5);
+        statusText.innerText = `Đang trong ca (${res.record.shift})`;
+        statusSub.innerHTML = `Vào ca lúc: <strong>${timeIn}</strong>. Chúc bạn một ngày làm việc vui vẻ!`;
+        actionBtn.innerHTML = `<button class="btn-clock btn-clock-out" onclick="handleClockOut()">🔴 RA CA</button>`;
+      } 
+      else if (res.status === 'done') {
+        const timeIn = res.record.time_in.split('T')[1].substring(0, 5);
+        const timeOut = res.record.time_out.split('T')[1].substring(0, 5);
+        statusText.innerText = '✅ Ca hôm nay đã hoàn thành';
+        statusSub.innerHTML = `Vào: ${timeIn} · Ra: ${timeOut} · Tổng: <strong>${res.record.hours_worked} giờ</strong>`;
+        actionBtn.innerHTML = '';
+      }
+    }).getAttendanceStatus(STATE.token);
+  }
+
+  function handleClockIn() {
+    const btn = document.querySelector('.btn-clock-in');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ĐANG XỬ LÝ...';
+
+    google.script.run.withSuccessHandler(res => {
+      if (res.success) {
+        alert('Vào ca thành công lúc ' + res.time_in);
+        updateAttendanceStatus();
+      } else {
+        alert(res.warning || res.error);
+        updateAttendanceStatus();
+      }
+    }).clockIn(STATE.token);
+  }
+
+  function handleClockOut() {
+    if (!confirm('Bạn có chắc chắn muốn kết thúc ca làm việc?')) return;
+    
+    const btn = document.querySelector('.btn-clock-out');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ĐANG XỬ LÝ...';
+
+    google.script.run.withSuccessHandler(res => {
+      if (res.success) {
+        alert(`Ra ca thành công!\nTổng giờ làm: ${res.hours_worked} giờ`);
+        updateAttendanceStatus();
+        if (['admin', 'manager'].includes(STATE.user.role)) loadAttendanceHistory();
+      } else {
+        alert(res.error);
+        updateAttendanceStatus();
+      }
+    }).clockOut(STATE.token);
+  }
+
+  /**
+   * Quản lý lịch sử (Manager)
+   */
+  function initAttendanceFilters() {
+    const yearSelect = document.getElementById('attYearFilter');
+    const monthSelect = document.getElementById('attMonthFilter');
+    
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    // Fill years (last 3 years)
+    yearSelect.innerHTML = '';
+    for (let y = currentYear; y >= currentYear - 2; y--) {
+      yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+    }
+    
+    monthSelect.value = currentMonth;
+  }
+
+  function loadAttendanceHistory() {
+    const year = document.getElementById('attYearFilter').value;
+    const month = document.getElementById('attMonthFilter').value;
+    const tbody = document.getElementById('attendanceTableBody');
+    
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>';
+
+    google.script.run.withSuccessHandler(data => {
+      if (data.error) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--error);">${data.error}</td></tr>`;
+        return;
+      }
+
+      ATTENDANCE_RECORDS = data;
+      tbody.innerHTML = data.map(r => {
+        const timeIn = r.time_in ? r.time_in.split('T')[1].substring(0, 5) : '-';
+        const timeOut = r.time_out ? r.time_out.split('T')[1].substring(0, 5) : '-';
+        const salary = (Number(r.hours_worked) * Number(r.hourly_rate)).toLocaleString();
+        
+        return `
+          <tr>
+            <td><div style="font-weight:600;">${r.staff_name}</div></td>
+            <td>${r.date}</td>
+            <td><span class="badge badge-info">${r.shift}</span></td>
+            <td>${timeIn}</td>
+            <td>${timeOut}</td>
+            <td><strong>${r.hours_worked}h</strong></td>
+            <td style="color:var(--secondary); font-weight:600;">${salary}đ</td>
+            <td>
+              <button class="btn btn-outline" style="padding:4px 8px; font-size:12px;" onclick="openEditAttendance('${r.attendance_id}')"><i class="fas fa-edit"></i></button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted);">Không có dữ liệu trong tháng này.</td></tr>';
+      }
+    }).getAttendanceByMonth(STATE.token, year, month);
+  }
+
+  function exportAttendance() {
+    if (ATTENDANCE_RECORDS.length === 0) { alert('Không có dữ liệu để xuất.'); return; }
+    
+    let csv = 'Nhân viên,Ngày,Ca,Vào ca,Ra ca,Tổng giờ,Lương tạm tính\n';
+    ATTENDANCE_RECORDS.forEach(r => {
+      const timeIn = r.time_in ? r.time_in.split('T')[1].substring(0, 5) : '-';
+      const timeOut = r.time_out ? r.time_out.split('T')[1].substring(0, 5) : '-';
+      const salary = Number(r.hours_worked) * Number(r.hourly_rate);
+      csv += `"${r.staff_name}","${r.date}","${r.shift}","${timeIn}","${timeOut}",${r.hours_worked},${salary}\n`;
+    });
+
+    const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `bangcong_${document.getElementById('attMonthFilter').value}_${document.getElementById('attYearFilter').value}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function openEditAttendance(id) {
+    const r = ATTENDANCE_RECORDS.find(x => x.attendance_id === id);
+    if (!r) return;
+    
+    const newHours = prompt(`Sửa tổng giờ làm cho ${r.staff_name} (${r.date}):`, r.hours_worked);
+    if (newHours === null) return;
+    
+    const note = prompt('Ghi chú lý do sửa:', r.note || '');
+    
+    google.script.run.withSuccessHandler(res => {
+      if (res.success) {
+        alert('Cập nhật thành công!');
+        loadAttendanceHistory();
+      } else {
+        alert(res.error);
+      }
+    }).editAttendance(STATE.token, id, { 
+      hours_worked: Number(newHours),
+      note: note
+    });
+  }
+</script>

@@ -1,0 +1,22 @@
+# RESULT REPORT — TASK_014
+- **Objective met:** yes
+- **Files changed/created:**
+  - `src/Config.gs` (created)
+  - `src/pages/app.html` (modified)
+  - `src/pages/components/settings.html` (created)
+  - `src/Reports.gs` (modified — fixed TASK_013 chart sorting)
+- **Diff summary:**
+  - Implemented a configuration system in `Config.gs` to manage shop metadata and operation parameters.
+  - Developed a dynamic QR Code generation engine that links each table to the public menu URL.
+  - Added an "Hệ thống -> Cài Đặt" section for Administrators.
+  - Created interactive forms for Shop Info, Working Shifts, and Table Management.
+  - Integrated with `api.qrserver.com` for real-time QR image rendering.
+  - Fixed a chronological sorting bug in the Revenue Report chart.
+- **Commands/tests run:**
+  - Verified `CONFIG` sheet interaction via `updateConfig` and `getConfigAsObject`.
+  - Confirmed Table QR URLs follow the format: `[AppURL]?page=menu&table=[TableCode]`.
+- **Notes/assumptions:**
+  - `ScriptApp.getService().getUrl()` is used to ensure the QR codes point to the current deployment.
+  - Table list is stored as a comma-separated string in the `tables` config key.
+- **Risks/known gaps:**
+  - QR generation depends on an external API (qrserver.com). If the service is down, QR images won't display.

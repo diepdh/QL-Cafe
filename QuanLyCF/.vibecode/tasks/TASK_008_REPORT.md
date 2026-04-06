@@ -1,0 +1,21 @@
+# RESULT REPORT — TASK_008
+- **Objective met:** yes
+- **Files changed/created:**
+  - `src/Orders.gs` (created)
+  - `src/Code.gs` (modified)
+  - `src/Inventory.gs` (modified — minor fix)
+  - `src/pages/menu.html` (created)
+- **Diff summary:**
+  - Created backend `src/Orders.gs` with `getPublicMenu()` and `createOrder()`.
+  - Updated `doGet(e)` in `src/Code.gs` to serve the QR Menu page.
+  - Implemented a mobile-first QR Menu with categories, cart management, and automated order submission.
+  - Applied a minor fix in `Inventory.gs` (changed `stf.name` to `stf.full_name`).
+- **Commands/tests run:**
+  - Verified `ORDERS` and `ORDER_ITEMS` headers: matches implementation.
+  - Verified `STAFF` data usage: confirmed `full_name` is the correct field in the minor fix.
+- **Notes/assumptions:**
+  - `tableCode` is passed from the URL parameter `table`.
+  - Orders from QR are set to `status="pending"` and `source="qr"`.
+- **Risks/known gaps:**
+  - No real-time notification for new orders (will be part of POS dashboard in TASK_009).
+  - No item-level customization (size/topping) yet as per "DO NOT" requirement.

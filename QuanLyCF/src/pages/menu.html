@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menu — QuanLyCF</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #7C3AED;
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --text: #1E293B;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --radius: 12px;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding-bottom: 80px; }
+    h1, h2, h3 { font-family: 'Be Vietnam Pro', sans-serif; }
+
+    header { background: var(--surface); padding: 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+    .logo { color: var(--primary); font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+    .table-badge { background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 600; }
+
+    .category-scroll { display: flex; overflow-x: auto; padding: 12px 16px; gap: 10px; background: var(--bg); position: sticky; top: 60px; z-index: 99; scrollbar-width: none; }
+    .category-scroll::-webkit-scrollbar { display: none; }
+    .cat-item { padding: 8px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; white-space: nowrap; font-size: 14px; font-weight: 500; cursor: pointer; }
+    .cat-item.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; }
+    .product-card { background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--border); display: flex; flex-direction: column; }
+    .product-img { width: 100%; aspect-ratio: 1/1; background: #E2E8F0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 32px; object-fit: cover; }
+    .product-info { padding: 12px; flex: 1; display: flex; flex-direction: column; }
+    .product-name { font-weight: 600; font-size: 15px; margin-bottom: 4px; line-height: 1.4; }
+    .product-price { color: var(--primary); font-weight: 700; font-size: 14px; margin-top: auto; }
+    .btn-add { background: var(--primary); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; position: absolute; bottom: 12px; right: 12px; }
+    .card-rel { position: relative; }
+
+    .cart-bar { position: fixed; bottom: 20px; left: 16px; right: 16px; background: var(--primary); color: white; height: 56px; border-radius: 28px; display: flex; align-items: center; padding: 0 20px; justify-content: space-between; box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.4); cursor: pointer; z-index: 200; transform: translateY(100px); transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .cart-bar.show { transform: translateY(0); }
+    .cart-count { background: white; color: var(--primary); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+
+    /* Cart Panel */
+    .cart-panel { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: none; align-items: flex-end; }
+    .cart-panel.open { display: flex; }
+    .cart-content { background: white; width: 100%; border-radius: 20px 20px 0 0; max-height: 85vh; display: flex; flex-direction: column; }
+    .cart-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .cart-items { flex: 1; overflow-y: auto; padding: 20px; }
+    .cart-item-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .cart-item-name { font-weight: 600; font-size: 15px; }
+    .cart-item-price { font-size: 13px; color: var(--text-muted); }
+    .qty-ctrl { display: flex; align-items: center; gap: 12px; }
+    .btn-qty { border: 1px solid var(--border); background: white; width: 28px; height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+
+    .note-section { padding: 20px; background: var(--bg); border-top: 1px solid var(--border); }
+    .quick-notes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .note-chip { padding: 6px 12px; background: white; border: 1px solid var(--border); border-radius: 16px; font-size: 13px; cursor: pointer; }
+    .note-chip.selected { background: var(--primary); color: white; border-color: var(--primary); }
+
+    .cart-footer { padding: 20px; border-top: 1px solid var(--border); }
+    .btn-checkout { background: var(--primary); color: white; border: none; width: 100%; padding: 16px; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; }
+
+    .success-overlay { position: fixed; inset: 0; background: white; z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; }
+    .success-icon { width: 80px; height: 80px; background: #22C55E; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; margin-bottom: 24px; }
+    
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo"><i class="fas fa-coffee"></i> QuanLyCF</div>
+    <div class="table-badge">Bàn: <?= tableCode ?></div>
+  </header>
+
+  <div class="category-scroll" id="categoryTabs">
+    <div class="cat-item active" onclick="filterCategory('all')">Tất cả</div>
+  </div>
+
+  <div class="menu-grid" id="menuGrid">
+    <!-- Products will be injected here -->
+  </div>
+
+  <div class="cart-bar" id="cartBar" onclick="toggleCart(true)">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div class="cart-count" id="cartCount">0</div>
+      <span style="font-weight:600;">Xem giỏ hàng</span>
+    </div>
+    <span id="cartTotal" style="font-weight:700;">0đ</span>
+  </div>
+
+  <!-- Cart Panel -->
+  <div class="cart-panel" id="cartPanel" onclick="if(event.target===this) toggleCart(false)">
+    <div class="cart-content" onclick="event.stopPropagation()">
+      <div class="cart-header">
+        <h3>Giỏ hàng của bạn</h3>
+        <button style="background:none; border:none; font-size:24px;" onclick="toggleCart(false)">&times;</button>
+      </div>
+      <div class="cart-items" id="cartItems">
+        <!-- Items will be injected here -->
+      </div>
+      <div class="note-section">
+        <label style="display:block; font-size:14px; font-weight:600; margin-bottom:10px;">Ghi chú nhanh:</label>
+        <div class="quick-notes">
+          <div class="note-chip" onclick="this.classList.toggle('selected')">Ít đường</div>
+          <div class="note-chip" onclick="this.classList.toggle('selected')">Không đường</div>
+          <div class="note-chip" onclick="this.classList.toggle('selected')">Ít đá</div>
+          <div class="note-chip" onclick="this.classList.toggle('selected')">Không đá</div>
+        </div>
+        <textarea id="orderNote" class="form-control" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:14px; height:80px;" placeholder="Ghi chú khác cho nhân viên..."></textarea>
+      </div>
+      <div class="cart-footer">
+        <div style="display:flex; justify-content:space-between; margin-bottom:16px; font-weight:700; font-size:18px;">
+          <span>Tổng cộng</span>
+          <span id="cartFinalTotal">0đ</span>
+        </div>
+        <button class="btn-checkout" id="btnSubmitOrder" onclick="submitOrder()">ĐẶT HÀNG NGAY</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Overlay -->
+  <div class="success-overlay" id="successOverlay">
+    <div class="success-icon"><i class="fas fa-check"></i></div>
+    <h2 style="margin-bottom:12px;">Đặt hàng thành công!</h2>
+    <p style="color:var(--text-muted); margin-bottom:32px;">Nhân viên sẽ sớm mang món ra cho bạn. Vui lòng đợi trong giây lát.</p>
+    <button class="btn-checkout" onclick="location.reload()">Quay lại Menu</button>
+  </div>
+
+  <script>
+    const TABLE_CODE = "<?= tableCode ?>";
+    let MENU_DATA = { products: [], categories: [] };
+    let CART = [];
+
+    // Khởi tạo
+    window.onload = function() {
+      loadMenu();
+    };
+
+    function loadMenu() {
+      google.script.run.withSuccessHandler(data => {
+        MENU_DATA = data;
+        renderCategories();
+        renderProducts('all');
+      }).getPublicMenu();
+    }
+
+    function renderCategories() {
+      const container = document.getElementById('categoryTabs');
+      const html = MENU_DATA.categories.map(c => `
+        <div class="cat-item" data-id="${c.category_id}" onclick="filterCategory('${c.category_id}')">${c.name}</div>
+      `).join('');
+      container.innerHTML = '<div class="cat-item active" onclick="filterCategory(\'all\')">Tất cả</div>' + html;
+    }
+
+    function filterCategory(catId) {
+      document.querySelectorAll('.cat-item').forEach(el => el.classList.remove('active'));
+      if (catId === 'all') {
+        document.querySelector('.cat-item').classList.add('active');
+      } else {
+        document.querySelector(`[data-id="${catId}"]`).classList.add('active');
+      }
+      renderProducts(catId);
+    }
+
+    function renderProducts(catId) {
+      const grid = document.getElementById('menuGrid');
+      const filtered = catId === 'all' 
+        ? MENU_DATA.products 
+        : MENU_DATA.products.filter(p => p.category_id === catId);
+
+      grid.innerHTML = filtered.map(p => `
+        <div class="product-card card-rel">
+          ${p.image_url ? `<img src="${p.image_url}" class="product-img" alt="${p.name}">` : `<div class="product-img"><i class="fas fa-coffee"></i></div>`}
+          <div class="product-info">
+            <div class="product-name">${p.name}</div>
+            <div class="product-price">${Number(p.price).toLocaleString()}đ</div>
+          </div>
+          <button class="btn-add" onclick="addToCart('${p.product_id}')"><i class="fas fa-plus"></i></button>
+        </div>
+      `).join('');
+    }
+
+    function addToCart(productId) {
+      const product = MENU_DATA.products.find(p => p.product_id === productId);
+      const existing = CART.find(item => item.product_id === productId);
+      
+      if (existing) {
+        existing.quantity += 1;
+      } else {
+        CART.push({
+          product_id: product.product_id,
+          name: product.name,
+          price: Number(product.price),
+          quantity: 1
+        });
+      }
+      updateCartUI();
+    }
+
+    function updateCartUI() {
+      const totalCount = CART.reduce((sum, item) => sum + item.quantity, 0);
+      const totalPrice = CART.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+      document.getElementById('cartCount').innerText = totalCount;
+      document.getElementById('cartTotal').innerText = totalPrice.toLocaleString() + 'đ';
+      document.getElementById('cartFinalTotal').innerText = totalPrice.toLocaleString() + 'đ';
+
+      const bar = document.getElementById('cartBar');
+      if (totalCount > 0) bar.classList.add('show');
+      else bar.classList.remove('show');
+
+      // Update panel items
+      const itemsContainer = document.getElementById('cartItems');
+      itemsContainer.innerHTML = CART.map(item => `
+        <div class="cart-item-row">
+          <div>
+            <div class="cart-item-name">${item.name}</div>
+            <div class="cart-item-price">${item.price.toLocaleString()}đ</div>
+          </div>
+          <div class="qty-ctrl">
+            <button class="btn-qty" onclick="changeQty('${item.product_id}', -1)">-</button>
+            <span style="font-weight:600; min-width:20px; text-align:center;">${item.quantity}</span>
+            <button class="btn-qty" onclick="changeQty('${item.product_id}', 1)">+</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function changeQty(productId, delta) {
+      const item = CART.find(i => i.product_id === productId);
+      if (item) {
+        item.quantity += delta;
+        if (item.quantity <= 0) {
+          CART = CART.filter(i => i.product_id !== productId);
+        }
+      }
+      updateCartUI();
+      if (CART.length === 0) toggleCart(false);
+    }
+
+    function toggleCart(show) {
+      const panel = document.getElementById('cartPanel');
+      if (show) panel.classList.add('open');
+      else panel.classList.remove('open');
+    }
+
+    function submitOrder() {
+      if (CART.length === 0) return;
+
+      const btn = document.getElementById('btnSubmitOrder');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ĐANG GỬI ĐƠN...';
+
+      // Thu thập ghi chú
+      const quickNotes = Array.from(document.querySelectorAll('.note-chip.selected')).map(el => el.innerText).join(', ');
+      const otherNote = document.getElementById('orderNote').value.trim();
+      const finalNote = [quickNotes, otherNote].filter(Boolean).join(' | ');
+
+      const subtotal = CART.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      
+      const orderData = {
+        table_code: TABLE_CODE,
+        source: 'qr',
+        subtotal: subtotal,
+        discount: 0,
+        total: subtotal,
+        items: CART.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          note: finalNote // Ghi chú chung cho cả đơn hoặc gắn từng item tùy thiết kế, ở đây gắn chung cho đơn giản
+        }))
+      };
+
+      google.script.run.withSuccessHandler(res => {
+        if (res.success) {
+          document.getElementById('successOverlay').style.display = 'flex';
+        } else {
+          alert('Lỗi đặt hàng: ' + (res.error || 'Không xác định'));
+          btn.disabled = false;
+          btn.innerText = 'ĐẶT HÀNG NGAY';
+        }
+      }).createOrder(null, orderData);
+    }
+  </script>
+</body>
+</html>

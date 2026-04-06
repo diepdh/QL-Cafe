@@ -1,0 +1,20 @@
+# RESULT REPORT — TASK_013
+- **Objective met:** yes
+- **Files changed/created:**
+  - `src/Reports.gs` (modified)
+  - `src/pages/app.html` (modified)
+  - `src/pages/components/reports.html` (created)
+- **Diff summary:**
+  - Implemented `getRevenueReport` backend logic to aggregate revenue, orders, and material consumption.
+  - Added "Top 5 Products" calculation by merging order items and product metadata.
+  - Developed a comprehensive Reporting UI with date range filters and quick-select presets.
+  - Integrated Chart.js bar chart for daily revenue visualization.
+  - Added material consumption tracking derived from processing logs within the specified period.
+- **Commands/tests run:**
+  - Manual code trace confirmed correct date filtering logic (`dateFrom` to `dateTo`).
+  - Verified KPI calculations: Average Order Value and Estimated Profit (40% revenue).
+- **Notes/assumptions:**
+  - Estimated profit is hardcoded at 40% of revenue as per instructions.
+  - Material usage calculation assumes `PROCESSING_LOG` is the source of truth for consumption during the period.
+- **Risks/known gaps:**
+  - Report performance may degrade if the number of orders or log entries becomes very large (needs future indexing or caching).

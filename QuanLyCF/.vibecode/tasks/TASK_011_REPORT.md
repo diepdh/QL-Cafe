@@ -1,0 +1,21 @@
+# RESULT REPORT — TASK_011
+- **Objective met:** yes
+- **Files changed/created:**
+  - `src/Staff.gs` (modified)
+  - `src/pages/app.html` (modified)
+  - `src/pages/components/attendance.html` (created)
+- **Diff summary:**
+  - Implemented attendance backend logic including `clockIn`, `clockOut`, and `getAttendanceStatus`.
+  - Added manager-specific functions: `getAttendanceByMonth` and `editAttendance`.
+  - Created a dual-view UI: a simplified "Clock-in/out" card for all employees and a detailed monthly timesheet for managers.
+  - Implemented automatic shift detection (morning/afternoon/evening) based on clock-in time.
+  - Added CSV export functionality for monthly attendance reports.
+- **Commands/tests run:**
+  - Verified `ATTENDANCE` sheet headers via Python script.
+  - Manual code review of server timestamp usage to prevent client-side time manipulation.
+- **Notes/assumptions:**
+  - Used `STATE.user.staff_id` directly for personal actions.
+  - Shift mapping: 0-13h (morning), 13-19h (afternoon), 19-24h (evening).
+- **Risks/known gaps:**
+  - Employees can only clock in once per day.
+  - No handling for night shifts that cross 00:00 (outside project scope).

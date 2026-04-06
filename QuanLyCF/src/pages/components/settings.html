@@ -1,0 +1,141 @@
+<script>
+  /**
+   * Khởi tạo trang Cài Đặt
+   */
+  function loadSettingsPage() {
+    google.script.run.withSuccessHandler(config => {
+      // 1. Điền thông tin quán
+      document.getElementById('cfg_shop_name').value = config.shop_name || '';
+      document.getElementById('cfg_shop_address').value = config.shop_address || '';
+      document.getElementById('cfg_shop_phone').value = config.shop_phone || '';
+      document.getElementById('cfg_shop_logo').value = config.shop_logo || '';
+
+      // 2. Điền cấu hình ca
+      document.getElementById('cfg_shift_morning_start').value = config.shift_morning_start || '06:00';
+      document.getElementById('cfg_shift_morning_end').value = config.shift_morning_end || '12:00';
+      document.getElementById('cfg_shift_afternoon_start').value = config.shift_afternoon_start || '12:00';
+      document.getElementById('cfg_shift_afternoon_end').value = config.shift_afternoon_end || '18:00';
+      document.getElementById('cfg_shift_evening_start').value = config.shift_evening_start || '18:00';
+      document.getElementById('cfg_shift_evening_end').value = config.shift_evening_end || '23:00';
+
+      // 3. Điền danh sách bàn
+      document.getElementById('cfg_tables').value = config.tables || '';
+
+      // 4. Load mã QR
+      loadQrCodes();
+    }).getConfig(STATE.token);
+  }
+
+  /**
+   * Tải và hiển thị danh sách mã QR
+   */
+  function loadQrCodes() {
+    const container = document.getElementById('qrCodesList');
+    container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tạo mã QR...</div>';
+
+    google.script.run.withSuccessHandler(res => {
+      if (res.error) {
+        container.innerHTML = `<div style="grid-column: 1/-1; color:var(--error);">${res.error}</div>`;
+        return;
+      }
+
+      container.innerHTML = res.data.map(qr => `
+        <div class="table-container" style="text-align:center; padding:12px; border:1px solid var(--border); box-shadow:none;">
+          <img src="${qr.qr_image_url}" alt="QR ${qr.table_code}" style="width:100%; border-radius:4px; margin-bottom:12px;">
+          <div style="font-weight:700; margin-bottom:8px;">${qr.table_code}</div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <a href="${qr.qr_image_url}" target="_blank" class="btn btn-outline" style="padding:4px; font-size:11px; justify-content:center; width:100%;">
+              <i class="fas fa-print"></i> Mở QR
+            </a>
+            <a href="${qr.menu_url}" target="_blank" class="btn btn-outline" style="padding:4px; font-size:11px; justify-content:center; width:100%;">
+              <i class="fas fa-external-link-alt"></i> Xem Menu
+            </a>
+          </div>
+        </div>
+      `).join('');
+
+      if (res.data.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:var(--text-muted); padding:20px;">Chưa có bàn nào được tạo.</div>';
+      }
+    }).getQrCodes(STATE.token);
+  }
+
+  /**
+   * Lưu thông tin quán
+   */
+  document.getElementById('shopConfigForm').onsubmit = function(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ĐANG LƯU...';
+
+    const data = {
+      shop_name: document.getElementById('cfg_shop_name').value,
+      shop_address: document.getElementById('cfg_shop_address').value,
+      shop_phone: document.getElementById('cfg_shop_phone').value,
+      shop_logo: document.getElementById('cfg_shop_logo').value
+    };
+
+    google.script.run.withSuccessHandler(res => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      if (res.success) alert('Đã lưu thông tin quán thành công!');
+      else alert('Lỗi: ' + res.error);
+    }).withFailureHandler(err => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      alert('Lỗi hệ thống: ' + err.message);
+    }).updateConfig(STATE.token, data);
+  };
+
+  /**
+   * Lưu cấu hình ca
+   */
+  document.getElementById('shiftConfigForm').onsubmit = function(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ĐANG LƯU...';
+
+    const data = {
+      shift_morning_start: document.getElementById('cfg_shift_morning_start').value,
+      shift_morning_end: document.getElementById('cfg_shift_morning_end').value,
+      shift_afternoon_start: document.getElementById('cfg_shift_afternoon_start').value,
+      shift_afternoon_end: document.getElementById('cfg_shift_afternoon_end').value,
+      shift_evening_start: document.getElementById('cfg_shift_evening_start').value,
+      shift_evening_end: document.getElementById('cfg_shift_evening_end').value
+    };
+
+    google.script.run.withSuccessHandler(res => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      if (res.success) alert('Đã lưu cấu hình ca làm việc!');
+      else alert('Lỗi: ' + res.error);
+    }).withFailureHandler(err => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      alert('Lỗi hệ thống: ' + err.message);
+    }).updateConfig(STATE.token, data);
+  };
+
+  /**
+   * Lưu danh sách bàn
+   */
+  function saveTableConfig() {
+    const val = document.getElementById('cfg_tables').value;
+    const btn = event.target;
+    btn.disabled = true;
+
+    google.script.run.withSuccessHandler(res => {
+      btn.disabled = false;
+      if (res.success) {
+        alert('Đã cập nhật danh sách bàn!');
+        loadQrCodes();
+      } else {
+        alert('Lỗi: ' + res.error);
+      }
+    }).updateConfig(STATE.token, { tables: val });
+  }
+</script>
