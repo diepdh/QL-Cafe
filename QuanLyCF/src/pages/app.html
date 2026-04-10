@@ -865,6 +865,10 @@
         body.innerHTML = document.getElementById('ordersTemplate').innerHTML;
         loadOrders();
       }
+      else if (id === 'products') {
+        body.innerHTML = document.getElementById('productsTemplate').innerHTML;
+        loadProductsPage();
+      }
       else if (id === 'staff') {
         body.innerHTML = document.getElementById('staffTemplate').innerHTML;
         if(isEditor) document.getElementById('staffActions').innerHTML = `<button class="btn btn-primary" onclick="openStaffModal()">+ Thêm Nhân Viên</button>`;
@@ -1060,6 +1064,7 @@
       }).login(u, p);
     };
   </script>
+  <?!= include('pages/components/products') ?>
   <?!= include('pages/components/recipes') ?>
   <?!= include('pages/components/processing') ?>
   <?!= include('pages/components/orders') ?>

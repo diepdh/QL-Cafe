@@ -1,0 +1,231 @@
+<div id="productsTemplate" class="hidden">
+  <div style="display:flex; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+    <div style="display:flex; gap:12px; flex:1; min-width:300px;">
+      <input type="text" class="form-control" placeholder="Tìm sản phẩm..." oninput="filterTable('productsTableBody', this.value)">
+      <select id="productCategoryFilter" class="form-control" style="width:180px;" onchange="filterProductsByCategory(this.value)">
+        <option value="">Tất cả danh mục</option>
+      </select>
+    </div>
+    <div id="productActions"></div>
+  </div>
+  
+  <div class="table-container">
+    <table class="qcf-table">
+      <thead>
+        <tr>
+          <th>Ảnh</th>
+          <th>Tên sản phẩm</th>
+          <th>Danh mục</th>
+          <th>Giá bán</th>
+          <th>Trạng thái</th>
+          <th>Hành động</th>
+        </tr>
+      </thead>
+      <tbody id="productsTableBody">
+        <tr><td colspan="6" style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Thêm/Sửa Sản Phẩm -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="productModalTitle">Thêm Sản Phẩm</h3>
+      <button onclick="closeModal('productModal')">&times;</button>
+    </div>
+    <form id="productForm">
+      <div class="modal-body">
+        <input type="hidden" id="prd_id">
+        <div class="form-group">
+          <label>Tên sản phẩm (*)</label>
+          <input type="text" id="prd_name" class="form-control" required placeholder="Ví dụ: Cà phê sữa đá">
+        </div>
+        <div class="form-group">
+          <label>Danh mục (*)</label>
+          <select id="prd_category" class="form-control" required></select>
+        </div>
+        <div class="form-group">
+          <label>Giá bán (*)</label>
+          <input type="number" id="prd_price" class="form-control" required placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>URL Hình ảnh</label>
+          <input type="text" id="prd_image" class="form-control" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label>Trạng thái</label>
+          <select id="prd_status" class="form-control">
+            <option value="active">Đang kinh doanh (Active)</option>
+            <option value="paused">Tạm dừng (Paused)</option>
+            <option value="out_of_stock">Hết hàng (Out of stock)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('productModal')">Hủy</button>
+        <button type="submit" class="btn btn-primary" id="btnSaveProduct">Lưu thông tin</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  /**
+   * Khởi tạo trang Sản phẩm
+   */
+  function loadProductsPage() {
+    const isEditor = ['admin', 'manager'].includes(STATE.user.role);
+    if (isEditor) {
+      document.getElementById('productActions').innerHTML = `
+        <button class="btn btn-primary" onclick="openProductModal()">
+          <i class="fas fa-plus"></i> Thêm Sản Phẩm
+        </button>
+      `;
+    }
+
+    // Load dữ liệu
+    loadProductCategories();
+    loadProductsList();
+  }
+
+  /**
+   * Tải danh sách sản phẩm từ server
+   */
+  function loadProductsList() {
+    google.script.run.withSuccessHandler(products => {
+      STATE.products = products;
+      renderProductsTable(products);
+    }).getProducts(STATE.token);
+  }
+
+  /**
+   * Tải danh mục để hiển thị trong Filter và Modal
+   */
+  function loadProductCategories() {
+    google.script.run.withSuccessHandler(categories => {
+      STATE.categories = categories;
+      
+      // Update Filter
+      const filterSelect = document.getElementById('productCategoryFilter');
+      const currentVal = filterSelect.value;
+      filterSelect.innerHTML = '<option value="">Tất cả danh mục</option>' + 
+        categories.map(c => `<option value="${c.category_id}">${c.name}</option>`).join('');
+      filterSelect.value = currentVal;
+
+      // Update Modal Select
+      const modalSelect = document.getElementById('prd_category');
+      modalSelect.innerHTML = categories.map(c => `<option value="${c.category_id}">${c.name}</option>`).join('');
+    }).getCategories(STATE.token);
+  }
+
+  /**
+   * Render bảng sản phẩm
+   */
+  function renderProductsTable(data) {
+    const tbody = document.getElementById('productsTableBody');
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px; color:var(--text-muted);">Chưa có sản phẩm nào</td></tr>';
+      return;
+    }
+
+    const isEditor = ['admin', 'manager'].includes(STATE.user.role);
+
+    tbody.innerHTML = data.map(p => {
+      let statusBadge = '';
+      if (p.status === 'active') statusBadge = '<span class="badge badge-success">Đang bán</span>';
+      else if (p.status === 'paused') statusBadge = '<span class="badge badge-warning">Tạm dừng</span>';
+      else statusBadge = '<span class="badge badge-danger">Hết hàng</span>';
+
+      const imgHtml = p.image_url 
+        ? `<img src="${p.image_url}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;" onerror="this.src='https://placehold.co/40x40?text=☕'">`
+        : `<div style="width:40px; height:40px; background:var(--bg); border-radius:4px; display:flex; align-items:center; justify-content:center; color:var(--text-muted);"><i class="fas fa-image"></i></div>`;
+
+      return `
+        <tr>
+          <td>${imgHtml}</td>
+          <td style="font-weight:600;">${p.name}</td>
+          <td>${p.category_name || 'N/A'}</td>
+          <td>${Number(p.price).toLocaleString()}đ</td>
+          <td>${statusBadge}</td>
+          <td>
+            ${isEditor ? `<button class="btn btn-outline" style="padding:4px 8px;" onclick="openProductModal('${p.product_id}')"><i class="fas fa-edit"></i></button>` : '-'}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  /**
+   * Lọc sản phẩm theo danh mục
+   */
+  function filterProductsByCategory(catId) {
+    if (!catId) {
+      renderProductsTable(STATE.products);
+      return;
+    }
+    const filtered = STATE.products.filter(p => p.category_id === catId);
+    renderProductsTable(filtered);
+  }
+
+  /**
+   * Mở Modal Thêm/Sửa
+   */
+  function openProductModal(id = null) {
+    const form = document.getElementById('productForm');
+    form.reset();
+    document.getElementById('prd_id').value = id || '';
+    document.getElementById('productModalTitle').innerText = id ? 'Chỉnh sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới';
+
+    if (id) {
+      const p = STATE.products.find(x => x.product_id === id);
+      if (p) {
+        document.getElementById('prd_name').value = p.name;
+        document.getElementById('prd_category').value = p.category_id;
+        document.getElementById('prd_price').value = p.price;
+        document.getElementById('prd_image').value = p.image_url || '';
+        document.getElementById('prd_status').value = p.status || 'active';
+      }
+    }
+
+    document.getElementById('productModal').classList.add('open');
+  }
+
+  /**
+   * Xử lý lưu form sản phẩm
+   */
+  document.getElementById('productForm').onsubmit = function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveProduct');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+
+    const id = document.getElementById('prd_id').value;
+    const data = {
+      name: document.getElementById('prd_name').value,
+      category_id: document.getElementById('prd_category').value,
+      price: document.getElementById('prd_price').value,
+      image_url: document.getElementById('prd_image').value,
+      status: document.getElementById('prd_status').value
+    };
+
+    const successHandler = (res) => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      if (res.error) {
+        alert('Lỗi: ' + res.error);
+      } else {
+        closeModal('productModal');
+        loadProductsList();
+      }
+    };
+
+    if (id) {
+      google.script.run.withSuccessHandler(successHandler).updateProduct(STATE.token, id, data);
+    } else {
+      google.script.run.withSuccessHandler(successHandler).createProduct(STATE.token, data);
+    }
+  };
+</script>
