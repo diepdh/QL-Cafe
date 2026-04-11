@@ -1,0 +1,13 @@
+**/*.md
+.gitignore
+.vibecode/
+scripts/
+PROJECT_SUMMARY.md
+SESSION_LOG_20260326.md
+SHEETS_SETUP.md
+USER_MANUAL.md
+workspace_rule_*
+.cursorrules
+node_modules/
+package-lock.json
+package.json

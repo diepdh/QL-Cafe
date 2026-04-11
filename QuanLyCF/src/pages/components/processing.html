@@ -14,56 +14,72 @@
    */
   function loadProcessingLogs() {
     const tbody = document.getElementById('processingTableBody');
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</td></tr>';
 
-    google.script.run.withSuccessHandler(logs => {
-      if (logs.error) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--error);">${logs.error}</td></tr>`;
-        return;
-      }
-      
-      tbody.innerHTML = logs.map(l => `
-        <tr>
-          <td>#${l.log_id.split('-').pop()}</td>
-          <td>
-            <div style="font-weight:600;">${l.raw_name}</div>
-            <div style="font-size:12px; color:var(--text-muted);">Lượng dùng: ${l.raw_qty_used}</div>
-          </td>
-          <td>
-            <div style="font-weight:600; color:var(--secondary);">${l.refined_name}</div>
-            <div style="font-size:12px; color:var(--text-muted);">Thu được: ${l.refined_qty_produced}</div>
-          </td>
-          <td>${l.staff_name}</td>
-          <td style="font-size:12px; white-space:nowrap;">${l.created_at.replace('T', ' ').split('.')[0]}</td>
-        </tr>
-      `).join('');
-      
-      if (logs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:40px; color:var(--text-muted);">Chưa có hoạt động sơ chế nào.</td></tr>';
-      }
-    }).getProcessingLogs(STATE.token);
+    google.script.run
+      .withSuccessHandler(logs => {
+        if (!tbody) return;
+        if (!logs || logs.error) {
+          if (logs && logs.error === 'UNAUTHORIZED') { handleLogout(); return; }
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--error); padding:20px;">Lỗi: ${logs && logs.error || 'Không xác định'}</td></tr>`;
+          return;
+        }
+        if (!Array.isArray(logs) || logs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:40px; color:var(--text-muted);">Chưa có hoạt động sơ chế nào.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = logs.map(l => `
+          <tr>
+            <td>#${String(l.log_id).split('-').pop()}</td>
+            <td>
+              <div style="font-weight:600;">${l.raw_name || 'N/A'}</div>
+              <div style="font-size:12px; color:var(--text-muted);">Lượng dùng: ${l.raw_qty_used}</div>
+            </td>
+            <td>
+              <div style="font-weight:600; color:var(--secondary);">${l.refined_name || 'N/A'}</div>
+              <div style="font-size:12px; color:var(--text-muted);">Thu được: ${l.refined_qty_produced}</div>
+            </td>
+            <td>${l.staff_name || 'N/A'}</td>
+            <td style="font-size:12px; white-space:nowrap;">${l.created_at ? String(l.created_at).replace('T', ' ').split('.')[0] : 'N/A'}</td>
+          </tr>
+        `).join('');
+      })
+      .withFailureHandler(err => {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--error); padding:20px;">Lỗi kết nối: ${err.message}</td></tr>`;
+      })
+      .getProcessingLogs(STATE.token);
   }
 
   /**
    * Mở modal tạo phiếu sơ chế
    */
   function openProcessingModal() {
-    google.script.run.withSuccessHandler(data => {
-      RAW_MATERIALS_CACHE = data.raw;
-      REFINED_MATERIALS_CACHE = data.refined;
+    google.script.run
+      .withSuccessHandler(data => {
+        if (!data || data.error) {
+          if (data && data.error === 'UNAUTHORIZED') { handleLogout(); return; }
+          alert('Lỗi khởi tạo dữ liệu: ' + (data && data.error || 'Không xác định'));
+          return;
+        }
+        RAW_MATERIALS_CACHE = data.raw || [];
+        REFINED_MATERIALS_CACHE = data.refined || [];
 
-      const rawSelect = document.getElementById('proc_raw_id');
-      rawSelect.innerHTML = '<option value="">-- Chọn NVL Thô --</option>' + 
-        data.raw.map(m => `<option value="${m.material_id}">${m.name} (Tồn: ${m.stock_qty} ${m.unit})</option>`).join('');
+        const rawSelect = document.getElementById('proc_raw_id');
+        rawSelect.innerHTML = '<option value="">-- Chọn NVL Thô --</option>' + 
+          RAW_MATERIALS_CACHE.map(m => `<option value="${m.material_id}">${m.name} (Tồn: ${m.stock_qty} ${m.unit})</option>`).join('');
 
-      const refSelect = document.getElementById('proc_ref_id');
-      refSelect.innerHTML = '<option value="">-- Chọn NVL Tinh Chế --</option>' + 
-        data.refined.map(m => `<option value="${m.refined_id}">${m.name}</option>`).join('');
+        const refSelect = document.getElementById('proc_ref_id');
+        refSelect.innerHTML = '<option value="">-- Chọn NVL Tinh Chế --</option>' + 
+          REFINED_MATERIALS_CACHE.map(m => `<option value="${m.refined_id}">${m.name}</option>`).join('');
 
-      document.getElementById('processingForm').reset();
-      document.getElementById('raw_stock_display').innerText = '';
-      document.getElementById('processingModal').classList.add('open');
-    }).getProcessingInitData(STATE.token);
+        document.getElementById('processingForm').reset();
+        document.getElementById('raw_stock_display').innerText = '';
+        document.getElementById('processingModal').classList.add('open');
+      })
+      .withFailureHandler(err => {
+        alert('Lỗi kết nối: ' + err.message);
+      })
+      .getProcessingInitData(STATE.token);
   }
 
   /**
@@ -80,7 +96,7 @@
       return;
     }
 
-    const mat = RAW_MATERIALS_CACHE.find(m => m.material_id === id);
+    const mat = RAW_MATERIALS_CACHE.find(m => String(m.material_id) === String(id));
     if (mat) {
       unitInput.value = mat.unit;
       stockDisplay.innerText = `Tồn kho khả dụng: ${mat.stock_qty} ${mat.unit}`;
@@ -99,7 +115,7 @@
       return;
     }
 
-    const mat = REFINED_MATERIALS_CACHE.find(m => m.refined_id === id);
+    const mat = REFINED_MATERIALS_CACHE.find(m => String(m.refined_id) === String(id));
     if (mat) {
       unitInput.value = mat.unit;
     }
@@ -118,7 +134,6 @@
       refined_qty_produced: Number(document.getElementById('proc_ref_qty').value)
     };
 
-    // Kiểm tra dữ liệu
     if (!data.raw_material_id || !data.refined_id || data.raw_qty_used <= 0 || data.refined_qty_produced <= 0) {
       alert('Vui lòng điền đầy đủ thông tin hợp lệ.');
       return;
@@ -129,17 +144,23 @@
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
 
-    google.script.run.withSuccessHandler(res => {
-      btn.disabled = false;
-      btn.innerHTML = originalText;
-      
-      if (res.success) {
-        alert('Ghi nhận sơ chế thành công!');
-        closeModal('processingModal');
-        loadProcessingLogs();
-      } else {
-        alert('Lỗi: ' + (res.error || 'Không xác định'));
-      }
-    }).createProcessingLog(STATE.token, data);
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if (res && res.success) {
+          alert('Ghi nhận sơ chế thành công!');
+          closeModal('processingModal');
+          loadProcessingLogs();
+        } else {
+          alert('Lỗi: ' + (res && res.error || 'Không xác định'));
+        }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        alert('Lỗi kết nối: ' + err.message);
+      })
+      .createProcessingLog(STATE.token, data);
   };
 </script>

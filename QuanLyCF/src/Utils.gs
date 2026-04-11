@@ -22,7 +22,14 @@ function getSheetData(sheetName) {
   const headers = values[0];
   return values.slice(1).map(row => {
     const obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
+    headers.forEach((h, i) => {
+      let val = row[i];
+      // Workaround cho GAS V8: google.script.run sẽ lẳng lặng trả về null nếu gửi object có chứa Date native!
+      if (val instanceof Date) {
+        val = Utilities.formatDate(val, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
+      }
+      obj[h] = val;
+    });
     return obj;
   });
 }

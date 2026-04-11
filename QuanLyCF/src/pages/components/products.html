@@ -84,40 +84,70 @@
         </button>
       `;
     }
-
-    // Load dữ liệu
-    loadProductCategories();
-    loadProductsList();
+    loadProductCategories(() => loadProductsList());
   }
 
   /**
    * Tải danh sách sản phẩm từ server
    */
   function loadProductsList() {
-    google.script.run.withSuccessHandler(products => {
-      STATE.products = products;
-      renderProductsTable(products);
-    }).getProducts(STATE.token);
+    const tbody = document.getElementById('productsTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</td></tr>';
+
+    google.script.run
+      .withSuccessHandler(products => {
+        if (!products || products.error) {
+          if (products && products.error === 'UNAUTHORIZED') { handleLogout(); return; }
+          if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--error);padding:20px;">Lỗi: ' + (products && products.error || 'Không xác định') + '</td></tr>';
+          return;
+        }
+        if (!Array.isArray(products)) {
+          if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--error);padding:20px;">Dữ liệu không hợp lệ</td></tr>';
+          return;
+        }
+        STATE.products = products;
+        renderProductsTable(products);
+      })
+      .withFailureHandler(err => {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--error);padding:20px;">Lỗi kết nối: ' + err.message + '</td></tr>';
+      })
+      .getProducts(STATE.token);
   }
 
   /**
-   * Tải danh mục để hiển thị trong Filter và Modal
+   * Tải danh mục
    */
-  function loadProductCategories() {
-    google.script.run.withSuccessHandler(categories => {
-      STATE.categories = categories;
-      
-      // Update Filter
-      const filterSelect = document.getElementById('productCategoryFilter');
-      const currentVal = filterSelect.value;
-      filterSelect.innerHTML = '<option value="">Tất cả danh mục</option>' + 
-        categories.map(c => `<option value="${c.category_id}">${c.name}</option>`).join('');
-      filterSelect.value = currentVal;
+  function loadProductCategories(onDone) {
+    google.script.run
+      .withSuccessHandler(categories => {
+        if (!categories || categories.error || !Array.isArray(categories)) {
+          if (categories && categories.error === 'UNAUTHORIZED') { handleLogout(); return; }
+          console.error('Lỗi tải danh mục:', categories && categories.error);
+          if (typeof onDone === 'function') onDone();
+          return;
+        }
+        STATE.categories = categories;
 
-      // Update Modal Select
-      const modalSelect = document.getElementById('prd_category');
-      modalSelect.innerHTML = categories.map(c => `<option value="${c.category_id}">${c.name}</option>`).join('');
-    }).getCategories(STATE.token);
+        const filterSelect = document.getElementById('productCategoryFilter');
+        if (filterSelect) {
+          const currentVal = filterSelect.value;
+          filterSelect.innerHTML = '<option value="">Tất cả danh mục</option>' +
+            categories.map(c => `<option value="${c.category_id}">${c.name}</option>`).join('');
+          filterSelect.value = currentVal;
+        }
+
+        const modalSelect = document.getElementById('prd_category');
+        if (modalSelect) {
+          modalSelect.innerHTML = categories.map(c => `<option value="${c.category_id}">${c.name}</option>`).join('');
+        }
+
+        if (typeof onDone === 'function') onDone();
+      })
+      .withFailureHandler(err => {
+        console.error('Lỗi kết nối danh mục:', err.message);
+        if (typeof onDone === 'function') onDone();
+      })
+      .getCategories(STATE.token);
   }
 
   /**
@@ -157,21 +187,15 @@
     }).join('');
   }
 
-  /**
-   * Lọc sản phẩm theo danh mục
-   */
   function filterProductsByCategory(catId) {
     if (!catId) {
       renderProductsTable(STATE.products);
       return;
     }
-    const filtered = STATE.products.filter(p => p.category_id === catId);
+    const filtered = STATE.products.filter(p => String(p.category_id) === String(catId));
     renderProductsTable(filtered);
   }
 
-  /**
-   * Mở Modal Thêm/Sửa
-   */
   function openProductModal(id = null) {
     const form = document.getElementById('productForm');
     form.reset();
@@ -179,7 +203,7 @@
     document.getElementById('productModalTitle').innerText = id ? 'Chỉnh sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới';
 
     if (id) {
-      const p = STATE.products.find(x => x.product_id === id);
+      const p = STATE.products.find(x => String(x.product_id) === String(id));
       if (p) {
         document.getElementById('prd_name').value = p.name;
         document.getElementById('prd_category').value = p.category_id;
@@ -192,9 +216,6 @@
     document.getElementById('productModal').classList.add('open');
   }
 
-  /**
-   * Xử lý lưu form sản phẩm
-   */
   document.getElementById('productForm').onsubmit = function(e) {
     e.preventDefault();
     const btn = document.getElementById('btnSaveProduct');
@@ -214,18 +235,24 @@
     const successHandler = (res) => {
       btn.disabled = false;
       btn.innerHTML = originalText;
-      if (res.error) {
-        alert('Lỗi: ' + res.error);
+      if (!res || res.error) {
+        alert('Lỗi: ' + (res && res.error || 'Không xác định'));
       } else {
         closeModal('productModal');
         loadProductsList();
       }
     };
 
+    const failureHandler = (err) => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      alert('Lỗi kết nối: ' + err.message);
+    };
+
     if (id) {
-      google.script.run.withSuccessHandler(successHandler).updateProduct(STATE.token, id, data);
+      google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).updateProduct(STATE.token, id, data);
     } else {
-      google.script.run.withSuccessHandler(successHandler).createProduct(STATE.token, data);
+      google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).createProduct(STATE.token, data);
     }
   };
 </script>
