@@ -4,22 +4,35 @@
    */
   function loadSettingsPage() {
     google.script.run.withSuccessHandler(config => {
+      const activeContainer = document.getElementById('pageBody');
+      if (!activeContainer) return;
+
+      // Hàm chuẩn hóa giờ (fix lỗi "7:00" thành "07:00" hoặc loại bỏ yyyy-MM-dd nếu có)
+      const parseTime = (val) => {
+        if (!val) return '';
+        let str = String(val).trim();
+        if (str.includes(' ')) str = str.split(' ').pop(); // lấy phần cuối là giờ
+        const parts = str.split(':');
+        if (parts.length >= 2) return parts[0].padStart(2, '0') + ':' + parts[1].padStart(2, '0');
+        return '';
+      };
+
       // 1. Điền thông tin quán
-      document.getElementById('cfg_shop_name').value = config.shop_name || '';
-      document.getElementById('cfg_shop_address').value = config.shop_address || '';
-      document.getElementById('cfg_shop_phone').value = config.shop_phone || '';
-      document.getElementById('cfg_shop_logo').value = config.shop_logo || '';
+      activeContainer.querySelector('#cfg_shop_name').value = config.shop_name || '';
+      activeContainer.querySelector('#cfg_shop_address').value = config.shop_address || '';
+      activeContainer.querySelector('#cfg_shop_phone').value = config.shop_phone || '';
+      activeContainer.querySelector('#cfg_shop_logo').value = config.shop_logo || '';
 
       // 2. Điền cấu hình ca
-      document.getElementById('cfg_shift_morning_start').value = config.shift_morning_start || '06:00';
-      document.getElementById('cfg_shift_morning_end').value = config.shift_morning_end || '12:00';
-      document.getElementById('cfg_shift_afternoon_start').value = config.shift_afternoon_start || '12:00';
-      document.getElementById('cfg_shift_afternoon_end').value = config.shift_afternoon_end || '18:00';
-      document.getElementById('cfg_shift_evening_start').value = config.shift_evening_start || '18:00';
-      document.getElementById('cfg_shift_evening_end').value = config.shift_evening_end || '23:00';
+      activeContainer.querySelector('#cfg_shift_morning_start').value = parseTime(config.shift_morning_start) || '06:00';
+      activeContainer.querySelector('#cfg_shift_morning_end').value = parseTime(config.shift_morning_end) || '12:00';
+      activeContainer.querySelector('#cfg_shift_afternoon_start').value = parseTime(config.shift_afternoon_start) || '12:00';
+      activeContainer.querySelector('#cfg_shift_afternoon_end').value = parseTime(config.shift_afternoon_end) || '18:00';
+      activeContainer.querySelector('#cfg_shift_evening_start').value = parseTime(config.shift_evening_start) || '18:00';
+      activeContainer.querySelector('#cfg_shift_evening_end').value = parseTime(config.shift_evening_end) || '23:00';
 
       // 3. Điền danh sách bàn
-      document.getElementById('cfg_tables').value = config.tables || '';
+      activeContainer.querySelector('#cfg_tables').value = config.tables || '';
 
       // 4. Load mã QR
       loadQrCodes();
@@ -63,18 +76,20 @@
   /**
    * Lưu thông tin quán
    */
-  document.getElementById('shopConfigForm').onsubmit = function(e) {
+  function saveShopConfig(e) {
     e.preventDefault();
     const btn = e.target.querySelector('button');
     const originalText = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ĐANG LƯU...';
 
+    // Đọc theo document.querySelector active trong pageBody để tránh duplicate ID
+    const container = document.getElementById('pageBody');
     const data = {
-      shop_name: document.getElementById('cfg_shop_name').value,
-      shop_address: document.getElementById('cfg_shop_address').value,
-      shop_phone: document.getElementById('cfg_shop_phone').value,
-      shop_logo: document.getElementById('cfg_shop_logo').value
+      shop_name: container.querySelector('#cfg_shop_name').value,
+      shop_address: container.querySelector('#cfg_shop_address').value,
+      shop_phone: container.querySelector('#cfg_shop_phone').value,
+      shop_logo: container.querySelector('#cfg_shop_logo').value
     };
 
     google.script.run.withSuccessHandler(res => {
@@ -87,25 +102,26 @@
       btn.innerHTML = originalText;
       alert('Lỗi hệ thống: ' + err.message);
     }).updateConfig(STATE.token, data);
-  };
+  }
 
   /**
    * Lưu cấu hình ca
    */
-  document.getElementById('shiftConfigForm').onsubmit = function(e) {
+  function saveShiftConfig(e) {
     e.preventDefault();
     const btn = e.target.querySelector('button');
     const originalText = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ĐANG LƯU...';
 
+    const container = document.getElementById('pageBody');
     const data = {
-      shift_morning_start: document.getElementById('cfg_shift_morning_start').value,
-      shift_morning_end: document.getElementById('cfg_shift_morning_end').value,
-      shift_afternoon_start: document.getElementById('cfg_shift_afternoon_start').value,
-      shift_afternoon_end: document.getElementById('cfg_shift_afternoon_end').value,
-      shift_evening_start: document.getElementById('cfg_shift_evening_start').value,
-      shift_evening_end: document.getElementById('cfg_shift_evening_end').value
+      shift_morning_start: container.querySelector('#cfg_shift_morning_start').value,
+      shift_morning_end: container.querySelector('#cfg_shift_morning_end').value,
+      shift_afternoon_start: container.querySelector('#cfg_shift_afternoon_start').value,
+      shift_afternoon_end: container.querySelector('#cfg_shift_afternoon_end').value,
+      shift_evening_start: container.querySelector('#cfg_shift_evening_start').value,
+      shift_evening_end: container.querySelector('#cfg_shift_evening_end').value
     };
 
     google.script.run.withSuccessHandler(res => {
@@ -118,13 +134,13 @@
       btn.innerHTML = originalText;
       alert('Lỗi hệ thống: ' + err.message);
     }).updateConfig(STATE.token, data);
-  };
+  }
 
   /**
    * Lưu danh sách bàn
    */
   function saveTableConfig() {
-    const val = document.getElementById('cfg_tables').value;
+    const val = document.getElementById('pageBody').querySelector('#cfg_tables').value;
     const btn = event.target;
     btn.disabled = true;
 
