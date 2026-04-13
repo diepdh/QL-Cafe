@@ -608,7 +608,7 @@
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px;">
       <div class="table-container">
         <h3 style="margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px;">Thông tin Quán</h3>
-        <form id="shopConfigForm">
+        <form id="shopConfigForm" onsubmit="saveShopConfig(event)">
           <div class="form-group"><label>Tên quán</label><input type="text" id="cfg_shop_name" class="form-control"></div>
           <div class="form-group"><label>Địa chỉ</label><input type="text" id="cfg_shop_address" class="form-control"></div>
           <div class="form-group"><label>Số điện thoại</label><input type="text" id="cfg_shop_phone" class="form-control"></div>
@@ -617,7 +617,7 @@
         </form>
 
         <h3 style="margin-top:40px; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px;">Ca làm việc</h3>
-        <form id="shiftConfigForm">
+        <form id="shiftConfigForm" onsubmit="saveShiftConfig(event)">
           <div class="form-group"><label>Ca Sáng</label><div style="display:flex;gap:8px;align-items:center;"><input type="time" id="cfg_shift_morning_start" class="form-control"><span>-</span><input type="time" id="cfg_shift_morning_end" class="form-control"></div></div>
           <div class="form-group"><label>Ca Chiều</label><div style="display:flex;gap:8px;align-items:center;"><input type="time" id="cfg_shift_afternoon_start" class="form-control"><span>-</span><input type="time" id="cfg_shift_afternoon_end" class="form-control"></div></div>
           <div class="form-group"><label>Ca Tối</label><div style="display:flex;gap:8px;align-items:center;"><input type="time" id="cfg_shift_evening_start" class="form-control"><span>-</span><input type="time" id="cfg_shift_evening_end" class="form-control"></div></div>
