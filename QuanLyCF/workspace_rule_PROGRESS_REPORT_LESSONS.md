@@ -27,6 +27,16 @@ if (val instanceof Date) {
 - **Vấn đề:** Google Sheets thỉnh thoảng tự định dạng các ID chỉ có số (như `101`) thành kiểu Number. Khi code dùng `===` để so sánh với String từ Frontend (`"101"`), phép so sánh sẽ trả về `false`.
 - **Cách tránh:** Luôn ép kiểu `String()` cho cả hai vế trước khi so sánh ID.
 
+### 4. Lỗi Clone HTML Template (Single Page Application - Vanilla JS)
+- **Vấn đề:** Khi nhân bản giao diện từ một template ẩn (`<div id="settingsTemplate">`) vào vùng hiển thị chính (`#pageBody`) bằng `.innerHTML`, các sự kiện đã gắn bằng `addEventListener` trên bản gốc sẽ bị mất. Đồng thời, việc tồn tại 2 bản ghi HTML có cùng ID khiến `document.getElementById` luôn trỏ về bản gốc ẩn.
+- **Cách tránh:** 
+    - Sử dụng `onsubmit="function(event)"` trực tiếp trong thẻ `<form>` của template.
+    - Luôn dùng `activeContainer.querySelector('#id')` thay vì `document.getElementById('#id')` để đảm bảo thao tác trên đúng vùng giao diện đang hiển thị.
+
+### 5. Chuẩn hóa định dạng Input Time (HTML5)
+- **Vấn đề:** Ô `<input type="time">` cực kỳ khắt khe, chỉ chấp nhận chuỗi định dạng chính xác `HH:mm` (phải có 2 chữ số giờ). Google Sheets thường tự động định dạng `7:00` thành `7:00` (mất số 0) hoặc nội suy thành object Datetime đầy đủ, khiến trình duyệt từ chối hiển thị và trả về `--:--`.
+- **Cách tránh:** Tạo hàm chuẩn hóa (`parseTime`) để cắt tỉa và thêm số 0 (`padStart`) trước khi gán giá trị cho ô Input.
+
 ### ✅ PATTERN KHUYÊN DÙNG
 
 #### Backend Error Handling
