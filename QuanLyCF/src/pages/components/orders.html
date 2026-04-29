@@ -23,6 +23,14 @@
     renderPosProducts(val);
   }
 
+  let posSearchTimeout;
+  function debouncedFilterPosProducts(val) {
+    if (posSearchTimeout) clearTimeout(posSearchTimeout);
+    posSearchTimeout = setTimeout(() => {
+      filterPosProducts(val);
+    }, 250);
+  }
+
   function renderPosProducts(search = '') {
     const grid = document.getElementById('posProductGrid');
     const catId = document.getElementById('posCategoryFilter').value;
@@ -32,7 +40,7 @@
     if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
 
     grid.innerHTML = filtered.map(p => `
-      <div class="product-card" style="cursor:pointer; position:relative;" onclick="addToPosCart('${p.product_id}')">
+      <div class="product-card" style="cursor:pointer; position:relative;" onclick="addToPosCart('${p.product_id}')" data-search="${p.name.toLowerCase()}">
         <div style="padding:12px;">
           <div style="font-weight:600; font-size:13px; margin-bottom:4px;">${p.name}</div>
           <div style="color:var(--primary); font-weight:700; font-size:12px;">${Number(p.price).toLocaleString()}đ</div>
@@ -43,10 +51,10 @@
 
   function addToPosCart(productId) {
     const product = POS_PRODUCTS.find(p => p.product_id === productId);
-    const existing = POS_CART.find(item => item.product_id === productId);
+    const existingIndex = POS_CART.findIndex(item => item.product_id === productId);
     
-    if (existing) {
-      existing.quantity += 1;
+    if (existingIndex !== -1) {
+      changePosQty(productId, 1);
     } else {
       POS_CART.push({
         product_id: product.product_id,
@@ -55,25 +63,25 @@
         quantity: 1,
         note: ''
       });
+      renderPosCart();
     }
-    renderPosCart();
   }
 
   function renderPosCart() {
     const container = document.getElementById('posCartItems');
-    container.innerHTML = POS_CART.map((item, index) => `
-      <div style="padding:12px; border-bottom:1px solid var(--bg); display:flex; flex-direction:column; gap:8px;">
+    container.innerHTML = POS_CART.map((item) => `
+      <div class="pos-cart-row" data-product-id="${item.product_id}" style="padding:12px; border-bottom:1px solid var(--bg); display:flex; flex-direction:column; gap:8px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div style="font-weight:600; font-size:14px;">${item.name}</div>
           <div class="qty-ctrl">
-            <button class="btn-qty" onclick="changePosQty(${index}, -1)">-</button>
-            <span>${item.quantity}</span>
-            <button class="btn-qty" onclick="changePosQty(${index}, 1)">+</button>
+            <button class="btn-qty" onclick="changePosQty('${item.product_id}', -1)">-</button>
+            <span class="qty-value">${item.quantity}</span>
+            <button class="btn-qty" onclick="changePosQty('${item.product_id}', 1)">+</button>
           </div>
         </div>
         <div style="display:flex; gap:8px;">
-          <input type="text" class="form-control" style="font-size:12px; padding:4px 8px;" placeholder="Ghi chú món..." value="${item.note}" oninput="POS_CART[${index}].note = this.value">
-          <div style="font-weight:700; min-width:80px; text-align:right;">${(item.price * item.quantity).toLocaleString()}đ</div>
+          <input type="text" class="form-control" style="font-size:12px; padding:4px 8px;" placeholder="Ghi chú món..." value="${item.note}" oninput="updatePosNote('${item.product_id}', this.value)">
+          <div class="item-total" style="font-weight:700; min-width:80px; text-align:right;">${(item.price * item.quantity).toLocaleString()}đ</div>
         </div>
       </div>
     `).join('');
@@ -85,10 +93,33 @@
     updatePosSummary();
   }
 
-  function changePosQty(index, delta) {
-    POS_CART[index].quantity += delta;
-    if (POS_CART[index].quantity <= 0) POS_CART.splice(index, 1);
-    renderPosCart();
+  function changePosQty(productId, delta) {
+    const index = POS_CART.findIndex(p => p.product_id === productId);
+    if (index === -1) return;
+    
+    const item = POS_CART[index];
+    item.quantity += delta;
+    
+    if (item.quantity <= 0) {
+      POS_CART.splice(index, 1);
+      renderPosCart();
+    } else {
+      // Fast path: update only this item in DOM to avoid full re-render
+      const row = document.querySelector(`.pos-cart-row[data-product-id="${productId}"]`);
+      if (row) {
+        const qtySpan = row.querySelector(\'.qty-value\');
+        if (qtySpan) qtySpan.innerText = item.quantity;
+        
+        const priceText = row.querySelector(\'.item-total\');
+        if (priceText) priceText.innerText = (item.price * item.quantity).toLocaleString() + \'đ\';
+      }
+      updatePosSummary();
+    }
+  }
+
+  function updatePosNote(productId, note) {
+    const item = POS_CART.find(p => p.product_id === productId);
+    if (item) item.note = note;
   }
 
   function updatePosSummary() {
@@ -131,6 +162,8 @@
         document.getElementById('posTableCode').value = '';
         document.getElementById('posDiscount').value = '0';
         renderPosCart();
+        invalidateCache('orders_');
+        invalidateCache('dashboard');
       } else {
         alert('Lỗi: ' + res.error);
       }
@@ -140,39 +173,50 @@
   /**
    * ORDERS LIST LOGIC
    */
-  function loadOrders() {
+  function loadOrders(forceRefresh = false) {
     const status = document.getElementById('orderStatusFilter').value;
     const date = document.getElementById('orderDateFilter').value;
     const tbody = document.getElementById('ordersTableBody');
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải đơn hàng...</td></tr>';
+    
+    // Unique key per filter combination
+    const cacheKey = `orders_${status}_${date}`;
+    
+    if (tbody && !forceRefresh && (!STATE.cache[cacheKey] || (Date.now() - STATE.cache[cacheKey].time > 10000))) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải đơn hàng...</td></tr>';
+    }
 
-    google.script.run.withSuccessHandler(orders => {
-      tbody.innerHTML = orders.map(o => `
-        <tr>
-          <td><div style="font-weight:700;">#${o.order_id.split('-').pop()}</div><div style="font-size:11px; color:var(--text-muted);">${o.order_id}</div></td>
-          <td>${o.table_code || '-'}</td>
-          <td>
-            <div style="font-size:13px;">
-              ${o.items.map(i => `<div>${i.product_name} x${i.quantity} ${i.note ? `<small style="color:var(--accent);">(${i.note})</small>` : ''}</div>`).join('')}
-            </div>
-          </td>
-          <td><div style="font-weight:700; color:var(--primary);">${Number(o.total).toLocaleString()}đ</div><div style="font-size:11px; color:var(--text-muted);">Mã: ${o.payment_method || 'N/A'}</div></td>
-          <td><span class="badge ${o.source==='qr'?'badge-info':'badge-success'}">${o.source}</span></td>
-          <td><span class="badge badge-${o.status==='pending'?'warning':(o.status==='completed'?'success':'danger')}">${o.status}</span></td>
-          <td><div style="font-size:12px;">${o.created_at.replace('T', ' ').split('.')[0]}</div></td>
-          <td>
-            ${o.status === 'pending' ? `
-              <div style="display:flex; gap:4px;">
-                <button class="btn btn-primary" style="padding:4px 8px; font-size:12px;" onclick="handleCompleteOrder('${o.order_id}')">Hoàn tất</button>
-                <button class="btn btn-outline" style="padding:4px 8px; font-size:12px; color:var(--error);" onclick="handleCancelOrder('${o.order_id}')">Hủy</button>
-              </div>
-            ` : '-'}
-          </td>
-        </tr>
-      `).join('');
-      
-      if (orders.length === 0) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted);">Không tìm thấy đơn hàng nào.</td></tr>';
-    }).getOrders(STATE.token, { status, date });
+    withCache(cacheKey, 10000, forceRefresh,
+      cb => google.script.run.withSuccessHandler(cb).getOrders(STATE.token, { status, date }),
+      orders => {
+        if (tbody) {
+          tbody.innerHTML = orders.map(o => `
+            <tr>
+              <td><div style="font-weight:700;">#${o.order_id.split('-').pop()}</div><div style="font-size:11px; color:var(--text-muted);">${o.order_id}</div></td>
+              <td>${o.table_code || '-'}</td>
+              <td>
+                <div style="font-size:13px;">
+                  ${o.items.map(i => `<div>${i.product_name} x${i.quantity} ${i.note ? `<small style="color:var(--accent);">(${i.note})</small>` : ''}</div>`).join('')}
+                </div>
+              </td>
+              <td><div style="font-weight:700; color:var(--primary);">${Number(o.total).toLocaleString()}đ</div><div style="font-size:11px; color:var(--text-muted);">Mã: ${o.payment_method || 'N/A'}</div></td>
+              <td><span class="badge ${o.source==='qr'?'badge-info':'badge-success'}">${o.source}</span></td>
+              <td><span class="badge badge-${o.status==='pending'?'warning':(o.status==='completed'?'success':'danger')}">${o.status}</span></td>
+              <td><div style="font-size:12px;">${o.created_at.replace('T', ' ').split('.')[0]}</div></td>
+              <td>
+                ${o.status === 'pending' ? `
+                  <div style="display:flex; gap:4px;">
+                    <button class="btn btn-primary" style="padding:4px 8px; font-size:12px;" onclick="handleCompleteOrder('${o.order_id}')">Hoàn tất</button>
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:12px; color:var(--error);" onclick="handleCancelOrder('${o.order_id}')">Hủy</button>
+                  </div>
+                ` : '-'}
+              </td>
+            </tr>
+          `).join('');
+          
+          if (orders.length === 0) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted);">Không tìm thấy đơn hàng nào.</td></tr>';
+        }
+      }
+    );
   }
 
   function handleCompleteOrder(orderId) {
@@ -181,8 +225,10 @@
 
     google.script.run.withSuccessHandler(res => {
       if (res.success) {
-        alert('Đã hoàn tất đơn hàng và trừ kho!');
-        loadOrders();
+        showToast('Đã hoàn tất đơn hàng và trừ kho!');
+        invalidateCache('orders_');
+        invalidateCache('dashboard');
+        loadOrders(true);
       } else {
         alert('Lỗi: ' + res.error);
       }
@@ -193,8 +239,9 @@
     if (!confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) return;
     google.script.run.withSuccessHandler(res => {
       if (res.success) {
-        alert('Đã hủy đơn hàng.');
-        loadOrders();
+        showToast('Đã hủy đơn hàng.');
+        invalidateCache('orders_');
+        loadOrders(true);
       } else {
         alert('Lỗi: ' + res.error);
       }

@@ -1,7 +1,7 @@
 <div id="productsTemplate" class="hidden">
   <div style="display:flex; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
     <div style="display:flex; gap:12px; flex:1; min-width:300px;">
-      <input type="text" class="form-control" placeholder="Tìm sản phẩm..." oninput="filterTable('productsTableBody', this.value)">
+      <input type="text" class="form-control" placeholder="Tìm sản phẩm..." oninput="debouncedFilterTable('productsTableBody', this.value)">
       <select id="productCategoryFilter" class="form-control" style="width:180px;" onchange="filterProductsByCategory(this.value)">
         <option value="">Tất cả danh mục</option>
       </select>
@@ -90,36 +90,33 @@
   /**
    * Tải danh sách sản phẩm từ server
    */
-  function loadProductsList() {
+  function loadProductsList(forceRefresh = false) {
     const tbody = document.getElementById('productsTableBody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</td></tr>';
+    if (tbody && !forceRefresh && (!STATE.cache['products'] || (Date.now() - STATE.cache['products'].time > 120000))) {
+       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</td></tr>';
+    }
 
-    google.script.run
-      .withSuccessHandler(products => {
+    withCache('products', 120000, forceRefresh,
+      cb => google.script.run.withSuccessHandler(cb).withFailureHandler(err => cb({error: err.message})).getProducts(STATE.token),
+      products => {
         if (!products || products.error) {
           if (products && products.error === 'UNAUTHORIZED') { handleLogout(); return; }
           if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--error);padding:20px;">Lỗi: ' + (products && products.error || 'Không xác định') + '</td></tr>';
           return;
         }
-        if (!Array.isArray(products)) {
-          if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--error);padding:20px;">Dữ liệu không hợp lệ</td></tr>';
-          return;
-        }
         STATE.products = products;
         renderProductsTable(products);
-      })
-      .withFailureHandler(err => {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--error);padding:20px;">Lỗi kết nối: ' + err.message + '</td></tr>';
-      })
-      .getProducts(STATE.token);
+      }
+    );
   }
 
   /**
    * Tải danh mục
    */
-  function loadProductCategories(onDone) {
-    google.script.run
-      .withSuccessHandler(categories => {
+  function loadProductCategories(onDone, forceRefresh = false) {
+    withCache('categories', 600000, forceRefresh,
+      cb => google.script.run.withSuccessHandler(cb).withFailureHandler(err => cb({error: err.message})).getCategories(STATE.token),
+      categories => {
         if (!categories || categories.error || !Array.isArray(categories)) {
           if (categories && categories.error === 'UNAUTHORIZED') { handleLogout(); return; }
           console.error('Lỗi tải danh mục:', categories && categories.error);
@@ -142,12 +139,8 @@
         }
 
         if (typeof onDone === 'function') onDone();
-      })
-      .withFailureHandler(err => {
-        console.error('Lỗi kết nối danh mục:', err.message);
-        if (typeof onDone === 'function') onDone();
-      })
-      .getCategories(STATE.token);
+      }
+    );
   }
 
   /**
@@ -172,8 +165,11 @@
         ? `<img src="${p.image_url}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;" onerror="this.src='https://placehold.co/40x40?text=☕'">`
         : `<div style="width:40px; height:40px; background:var(--bg); border-radius:4px; display:flex; align-items:center; justify-content:center; color:var(--text-muted);"><i class="fas fa-image"></i></div>`;
 
+      // Optimized for search with pre-calculated lower-case token
+      const searchToken = (p.name + ' ' + (p.category_name || '')).toLowerCase();
+
       return `
-        <tr>
+        <tr data-search="${searchToken}">
           <td>${imgHtml}</td>
           <td style="font-weight:600;">${p.name}</td>
           <td>${p.category_name || 'N/A'}</td>
@@ -239,7 +235,8 @@
         alert('Lỗi: ' + (res && res.error || 'Không xác định'));
       } else {
         closeModal('productModal');
-        loadProductsList();
+        invalidateCache('products');
+        loadProductsList(true);
       }
     };
 

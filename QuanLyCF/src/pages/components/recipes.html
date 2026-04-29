@@ -83,11 +83,14 @@
           tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red; padding:20px;">Lỗi: ${recipe && recipe.error || 'Không xác định'}</td></tr>`;
           return;
         }
-        tbody.innerHTML = '';
+        
         if (!Array.isArray(recipe) || recipe.length === 0) {
           tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:40px; color:var(--text-muted);">Sản phẩm này chưa có công thức. Nhấn "+ Thêm NVL" để bắt đầu.</td></tr>';
         } else {
-          recipe.forEach(item => addIngredientRow(item));
+          tbody.innerHTML = '';
+          const fragment = document.createDocumentFragment();
+          recipe.forEach(item => addIngredientRow(item, fragment));
+          tbody.appendChild(fragment);
         }
       })
       .withFailureHandler(err => {
@@ -99,10 +102,12 @@
   /**
    * Thêm 1 dòng NVL vào bảng
    */
-  function addIngredientRow(data = null) {
+  function addIngredientRow(data = null, parent = null) {
     const tbody = document.getElementById('recipeTableBody');
+    const target = parent || tbody;
     
-    if (tbody.rows.length === 1 && tbody.rows[0].cells.length === 1) {
+    // Xóa dòng thông báo nếu đang thêm dòng đầu tiên vào tbody trực tiếp
+    if (!parent && tbody.rows.length === 1 && tbody.rows[0].cells.length === 1) {
       tbody.innerHTML = '';
     }
 
@@ -134,7 +139,7 @@
       </td>
     `;
     
-    tbody.appendChild(tr);
+    target.appendChild(tr);
     if (!data) {
       const select = tr.querySelector('.ing-id');
       if (select && select.value) updateRowUnit(select);
@@ -184,7 +189,7 @@
     });
 
     if (!isValid) {
-      alert('Vui lòng nhập đầy đủ thông tin nguyên liệu và số lượng.');
+      showToast('Vui lòng nhập đầy đủ thông tin nguyên liệu và số lượng.', 'error');
       return;
     }
 
@@ -202,15 +207,15 @@
         btn.disabled = false;
         btn.innerHTML = originalText;
         if (res && res.success) {
-          alert('Lưu công thức thành công!');
+          showToast('Lưu công thức thành công!');
         } else {
-          alert('Lỗi: ' + (res && res.error || 'Không xác định'));
+          showToast('Lỗi: ' + (res && res.error || 'Không xác định'), 'error');
         }
       })
       .withFailureHandler(err => {
         btn.disabled = false;
         btn.innerHTML = originalText;
-        alert('Lỗi kết nối: ' + err.message);
+        showToast('Lỗi kết nối: ' + err.message, 'error');
       })
       .saveRecipe(STATE.token, SELECTED_PRODUCT_ID, ingredients);
   }

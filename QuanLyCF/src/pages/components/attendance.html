@@ -62,10 +62,10 @@
 
     google.script.run.withSuccessHandler(res => {
       if (res.success) {
-        alert('Vào ca thành công lúc ' + res.time_in);
+        showToast('Vào ca thành công lúc ' + res.time_in);
         updateAttendanceStatus();
       } else {
-        alert(res.warning || res.error);
+        showToast(res.warning || res.error, 'error');
         updateAttendanceStatus();
       }
     }).clockIn(STATE.token);
@@ -80,11 +80,11 @@
 
     google.script.run.withSuccessHandler(res => {
       if (res.success) {
-        alert(`Ra ca thành công!\nTổng giờ làm: ${res.hours_worked} giờ`);
+        showToast(`Ra ca thành công! Tổng: ${res.hours_worked} giờ`);
         updateAttendanceStatus();
         if (['admin', 'manager'].includes(STATE.user.role)) loadAttendanceHistory();
       } else {
-        alert(res.error);
+        showToast(res.error, 'error');
         updateAttendanceStatus();
       }
     }).clockOut(STATE.token);
@@ -152,7 +152,7 @@
   }
 
   function exportAttendance() {
-    if (ATTENDANCE_RECORDS.length === 0) { alert('Không có dữ liệu để xuất.'); return; }
+    if (ATTENDANCE_RECORDS.length === 0) { showToast('Không có dữ liệu để xuất.', 'error'); return; }
     
     let csv = 'Nhân viên,Ngày,Ca,Vào ca,Ra ca,Tổng giờ,Lương tạm tính\n';
     ATTENDANCE_RECORDS.forEach(r => {
@@ -177,21 +177,44 @@
     const r = ATTENDANCE_RECORDS.find(x => x.attendance_id === id);
     if (!r) return;
     
-    const newHours = prompt(`Sửa tổng giờ làm cho ${r.staff_name} (${r.date}):`, r.hours_worked);
-    if (newHours === null) return;
+    document.getElementById('edit_att_id').value = id;
+    document.getElementById('edit_att_staff_label').innerText = `Nhân viên: ${r.staff_name} (${r.date})`;
+    document.getElementById('edit_att_hours').value = r.hours_worked;
+    document.getElementById('edit_att_note').value = r.note || '';
     
-    const note = prompt('Ghi chú lý do sửa:', r.note || '');
-    
-    google.script.run.withSuccessHandler(res => {
-      if (res.success) {
-        alert('Cập nhật thành công!');
-        loadAttendanceHistory();
-      } else {
-        alert(res.error);
-      }
-    }).editAttendance(STATE.token, id, { 
-      hours_worked: Number(newHours),
-      note: note
-    });
+    document.getElementById('editAttendanceModal').classList.add('open');
   }
+
+  // Khởi tạo handler cho form sửa chấm công
+  (function() {
+    const form = document.getElementById('editAttendanceForm');
+    if (!form) return;
+    
+    form.onsubmit = function(e) {
+      e.preventDefault();
+      const id = document.getElementById('edit_att_id').value;
+      const hours = document.getElementById('edit_att_hours').value;
+      const note = document.getElementById('edit_att_note').value;
+      
+      const btn = form.querySelector('button[type="submit"]');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+
+      google.script.run.withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if (res.success) {
+          closeModal('editAttendanceModal');
+          showToast('✅ Cập nhật chấm công thành công!');
+          loadAttendanceHistory();
+        } else {
+          showToast(res.error, 'error');
+        }
+      }).editAttendance(STATE.token, id, { 
+        hours_worked: Number(hours),
+        note: note
+      });
+    };
+  })();
 </script>

@@ -32,7 +32,8 @@
     body { font-family: 'Inter', sans-serif; color: var(--text); background: var(--bg); line-height: 1.6; }
     h1, h2, h3, .sidebar-logo { font-family: 'Be Vietnam Pro', sans-serif; }
     .hidden { display: none !important; }
-    .btn { padding: 10px 16px; border-radius: var(--radius); border: none; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.2s; }
+    .btn { padding: 10px 16px; border-radius: var(--radius); border: none; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.2s; -webkit-tap-highlight-color: transparent; }
+    .btn:active { transform: scale(0.96); opacity: 0.8; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-outline { background: white; border: 1px solid var(--border); color: var(--text); }
     .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
@@ -235,6 +236,16 @@
       .bottom-nav-item.active {
         color: var(--primary);
       }
+
+      /* --- PERFORMANCE OPTIMIZATIONS (TASK_T003) --- */
+      .kpi-card, .chart-container, .table-container, .btn {
+        box-shadow: none !important; /* Giảm chi phí paint shadow trên mobile */
+        border: 1px solid var(--border);
+        transition: none !important; /* Tắt transition để tránh jank khi render/điều hướng */
+      }
+      .sidebar {
+        will-change: transform; /* Hint cho browser tối ưu layer composite */
+      }
     }
 
     /* --- MODAL --- */
@@ -319,22 +330,22 @@
   </div>
 
   <div id="rawMaterialsTemplate" class="hidden">
-    <div style="display:flex;justify-content:space-between;margin-bottom:20px;"><input type="text" class="form-control" style="max-width:300px;" placeholder="Tìm kiếm NVL..." oninput="filterTable('rawMaterialsTableBody', this.value)"><div id="rawMaterialActions"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:20px;"><input type="text" class="form-control" style="max-width:300px;" placeholder="Tìm kiếm NVL..." oninput="debouncedFilterTable('rawMaterialsTableBody', this.value)"><div id="rawMaterialActions"></div></div>
     <div class="table-container"><table class="qcf-table"><thead><tr><th>Tên NVL</th><th>Đơn vị</th><th>Tồn kho</th><th>Tối thiểu</th><th>Nhà cung cấp</th><th>Hành động</th></tr></thead><tbody id="rawMaterialsTableBody"></tbody></table></div>
   </div>
 
   <div id="refinedMaterialsTemplate" class="hidden">
-    <div style="display:flex;justify-content:space-between;margin-bottom:20px;"><input type="text" class="form-control" style="max-width:300px;" placeholder="Tìm kiếm..." oninput="filterTable('refinedMaterialsTableBody', this.value)"><div id="refinedMaterialActions"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:20px;"><input type="text" class="form-control" style="max-width:300px;" placeholder="Tìm kiếm..." oninput="debouncedFilterTable('refinedMaterialsTableBody', this.value)"><div id="refinedMaterialActions"></div></div>
     <div class="table-container"><table class="qcf-table"><thead><tr><th>Tên NVL Tinh Chế</th><th>Đơn vị</th><th>Tồn kho</th><th>Tối thiểu</th><th>Hành động</th></tr></thead><tbody id="refinedMaterialsTableBody"></tbody></table></div>
   </div>
 
   <div id="suppliersTemplate" class="hidden">
-    <div style="display:flex;justify-content:space-between;margin-bottom:20px;"><input type="text" class="form-control" style="max-width:300px;" placeholder="Tìm kiếm..." oninput="filterTable('suppliersTableBody', this.value)"><div id="supplierActions"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:20px;"><input type="text" class="form-control" style="max-width:300px;" placeholder="Tìm kiếm..." oninput="debouncedFilterTable('suppliersTableBody', this.value)"><div id="supplierActions"></div></div>
     <div class="table-container"><table class="qcf-table"><thead><tr><th>Tên NCC</th><th>Số điện thoại</th><th>Ghi chú</th><th>Hành động</th></tr></thead><tbody id="suppliersTableBody"></tbody></table></div>
   </div>
 
   <div id="procurementTemplate" class="hidden">
-    <div style="display:flex;justify-content:space-between;margin-bottom:20px;"><input type="text" class="form-control" style="max-width:300px;" placeholder="Tìm phiếu nhập..." oninput="filterTable('procurementTableBody', this.value)"><div id="procurementActions"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:20px;"><input type="text" class="form-control" style="max-width:300px;" placeholder="Tìm phiếu nhập..." oninput="debouncedFilterTable('procurementTableBody', this.value)"><div id="procurementActions"></div></div>
     <div class="table-container"><table class="qcf-table"><thead><tr><th>Mã phiếu</th><th>NVL</th><th>Số lượng</th><th>Giá nhập</th><th>Tổng</th><th>NCC</th><th>Ngày</th></tr></thead><tbody id="procurementTableBody"></tbody></table></div>
   </div>
 
@@ -342,7 +353,7 @@
     <div style="display:grid; grid-template-columns: 300px 1fr; gap:20px;">
       <div class="table-container">
         <h3 style="margin-bottom:16px;">Danh sách sản phẩm</h3>
-        <input type="text" class="form-control" style="margin-bottom:12px;" placeholder="Tìm sản phẩm..." oninput="filterTable('recipeProductList', this.value)">
+        <input type="text" class="form-control" style="margin-bottom:12px;" placeholder="Tìm sản phẩm..." oninput="debouncedFilterTable('recipeProductList', this.value)">
         <div id="recipeProductList" style="max-height:600px; overflow-y:auto;"></div>
       </div>
       <div class="table-container">
@@ -371,8 +382,11 @@
   </div>
 
   <div id="processingTemplate" class="hidden">
-    <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
-      <h3>Lịch sử sơ chế</h3>
+    <div style="display:flex; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <input type="text" class="form-control" style="width:200px;" placeholder="Tìm sơ chế..." oninput="debouncedFilterTable('processingTableBody', this.value)">
+        <h3>Lịch sử sơ chế</h3>
+      </div>
       <button class="btn btn-primary" onclick="openProcessingModal()">+ Phiếu Sơ Chế Mới</button>
     </div>
     <div class="table-container">
@@ -381,7 +395,7 @@
           <tr>
             <th>Mã phiếu</th>
             <th>NVL Thô dùng</th>
-            <th>NVL Tinh Chế thu</th>
+            <th>NVL Tinh Chế thu được</th>
             <th>Nhân viên</th>
             <th>Thời gian</th>
           </tr>
@@ -395,7 +409,7 @@
     <div style="display:grid; grid-template-columns: 1fr 400px; gap:20px; height: calc(100vh - 120px);">
       <div class="table-container" style="display:flex; flex-direction:column;">
         <div style="display:flex; gap:12px; margin-bottom:16px;">
-          <input type="text" class="form-control" placeholder="Tìm sản phẩm..." oninput="filterPosProducts(this.value)">
+          <input type="text" class="form-control" placeholder="Tìm sản phẩm..." oninput="debouncedFilterPosProducts(this.value)">
           <select id="posCategoryFilter" class="form-control" style="width:200px;" onchange="filterPosProducts('')"></select>
         </div>
         <div id="posProductGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px; overflow-y:auto; flex:1; align-content: start;"></div>
@@ -421,8 +435,9 @@
   </div>
 
   <div id="ordersTemplate" class="hidden">
-    <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center;">
-      <div style="display:flex; gap:12px;">
+    <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+        <input type="text" class="form-control" style="width:200px;" placeholder="Tìm đơn hàng..." oninput="debouncedFilterTable('ordersTableBody', this.value)">
         <select id="orderStatusFilter" class="form-control" style="width:160px;" onchange="loadOrders()">
           <option value="">Tất cả trạng thái</option>
           <option value="pending" selected>Chờ xử lý (Pending)</option>
@@ -453,13 +468,14 @@
   </div>
 
   <div id="staffTemplate" class="hidden">
-    <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
-      <div style="display:flex; gap:12px;">
-        <input type="text" class="form-control" style="max-width:300px;" placeholder="Tìm nhân viên..." oninput="filterTable('staffTableBody', this.value)">
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:14px;">
-          <input type="checkbox" id="showInactiveStaff" onchange="loadStaff()"> Hiện cả NV nghỉ việc
-        </label>
-      </div>
+    <div style="display:flex; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+    <div style="display:flex; gap:12px; align-items:center;">
+      <input type="text" class="form-control" style="max-width:300px;" placeholder="Tìm nhân viên..." oninput="debouncedFilterTable('staffTableBody', this.value)">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:14px;">
+        <input type="checkbox" id="showInactiveStaff" onchange="loadStaff()"> Hiện cả NV nghỉ việc
+      </label>
+    </div>
+
       <div id="staffActions"></div>
     </div>
     <div class="table-container">
@@ -490,8 +506,9 @@
     </div>
     
     <div id="managerAttendanceView" class="hidden">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-        <div style="display:flex; gap:12px; align-items:center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <input type="text" class="form-control" style="width:200px;" placeholder="Tìm chấm công..." oninput="debouncedFilterTable('attendanceTableBody', this.value)">
           <select id="attYearFilter" class="form-control" style="width:100px;" onchange="loadAttendanceHistory()"></select>
           <select id="attMonthFilter" class="form-control" style="width:140px;" onchange="loadAttendanceHistory()">
             <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option>
@@ -529,8 +546,9 @@
       <div class="kpi-card"><div class="kpi-icon" style="background:rgba(239,68,68,0.1);color:var(--error);"><i class="fas fa-arrow-up"></i></div><div><h3 style="font-size:13px;color:var(--text-muted);text-transform:uppercase;">Tổng Chi (Tháng)</h3><div class="kpi-value" id="cfTotalExpense" style="color:var(--error);">0đ</div></div></div>
       <div class="kpi-card"><div class="kpi-icon" style="background:rgba(124,58,237,0.1);color:var(--primary);"><i class="fas fa-balance-scale"></i></div><div><h3 style="font-size:13px;color:var(--text-muted);text-transform:uppercase;">Dòng tiền ròng</h3><div class="kpi-value" id="cfNetCashflow">0đ</div></div></div>
     </div>
-    <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center;">
-      <div style="display:flex; gap:12px; align-items:center;">
+    <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <input type="text" class="form-control" style="width:200px;" placeholder="Tìm thu chi..." oninput="debouncedFilterTable('cashflowTableBody', this.value)">
         <select id="cfYearFilter" class="form-control" style="width:100px;" onchange="loadCashflow()"></select>
         <select id="cfMonthFilter" class="form-control" style="width:140px;" onchange="loadCashflow()">
           <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option>
@@ -559,8 +577,8 @@
   </div>
 
   <div id="reportsTemplate" class="hidden">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-      <div style="display:flex; gap:12px; align-items:center;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
         <input type="date" id="repDateFrom" class="form-control" style="width:160px;" onchange="loadRevenueReport()">
         <span>đến</span>
         <input type="date" id="repDateTo" class="form-control" style="width:160px;" onchange="loadRevenueReport()">
@@ -735,13 +753,26 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="editAttendanceModal">
+    <div class="modal-card">
+      <div class="modal-header"><h3>Sửa công chấm</h3><button onclick="closeModal('editAttendanceModal')">&times;</button></div>
+      <form id="editAttendanceForm"><div class="modal-body">
+        <input type="hidden" id="edit_att_id">
+        <div class="form-group" style="margin-bottom:12px;"><label id="edit_att_staff_label" style="color:var(--primary); font-weight:700;"></label></div>
+        <div class="form-group"><label>Tổng giờ làm (*)</label><input type="number" id="edit_att_hours" class="form-control" required step="any" min="0"></div>
+        <div class="form-group"><label>Ghi chú lý do sửa</label><textarea id="edit_att_note" class="form-control" style="height:80px;"></textarea></div>
+      </div><div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('editAttendanceModal')">Hủy</button><button type="submit" class="btn btn-primary">Lưu thay đổi</button></div></form>
+    </div>
+  </div>
+
   <script>
     const STATE = {
       token: sessionStorage.getItem('qcf_token'),
       user: JSON.parse(sessionStorage.getItem('qcf_user') || 'null'),
       currentPage: 'dashboard',
       chart: null,
-      suppliers: [], rawMaterials: []
+      suppliers: [], rawMaterials: [],
+      cache: {}
     };
 
     const MENU_ITEMS = [
@@ -929,38 +960,102 @@
       }
     }
 
-    // --- DASHBOARD ---
-    function loadDashboard() {
-      google.script.run.withSuccessHandler(data => {
-        if (data.error) {
-          if (data.error === 'UNAUTHORIZED') handleLogout();
-          else alert('Lỗi load dashboard: ' + data.error);
-          return;
+    // --- CACHING HELPER ---
+    function withCache(key, expiryMs, forceRefresh, fetchFn, successHandler) {
+      const now = Date.now();
+      if (!forceRefresh && STATE.cache[key] && (now - STATE.cache[key].time < expiryMs)) {
+        successHandler(STATE.cache[key].data);
+        return;
+      }
+      fetchFn(data => {
+        if (!data || !data.error) {
+          STATE.cache[key] = { data: data, time: Date.now() };
         }
-        document.getElementById('kpiRevenueToday').innerText = Number(data.kpis.revenueToday).toLocaleString()+'đ';
-        document.getElementById('kpiOrderToday').innerText = data.kpis.orderCountToday;
-        document.getElementById('kpiLowStock').innerText = data.kpis.lowStockCount;
-        document.getElementById('kpiActiveProducts').innerText = data.kpis.activeProducts;
-        document.getElementById('statWeekRevenue').innerText = Number(data.stats.weekRevenue).toLocaleString()+'đ';
-        document.getElementById('statMonthRevenue').innerText = Number(data.stats.monthRevenue).toLocaleString()+'đ';
-        document.getElementById('statMonthOrderCount').innerText = data.stats.monthOrderCount;
-        renderChart(data.chart);
-        const tbody = document.getElementById('recentOrdersTableBody');
-        tbody.innerHTML = data.recentOrders.length ? data.recentOrders.map(o => `<tr><td>#${o.order_id.split('-').pop()}</td><td><span class="badge badge-info">${o.source}</span></td><td>${Number(o.total).toLocaleString()}đ</td><td><span class="badge badge-${o.status==='completed'?'success':'warning'}">${o.status}</span></td><td>${o.created_at.split(' ')[1]}</td></tr>`).join('') : '<tr><td colspan="5">Chưa có đơn hàng</td></tr>';
-      }).getDashboardData(STATE.token);
+        successHandler(data);
+      });
+    }
+
+    function invalidateCache(prefix) {
+      if (!prefix) {
+        STATE.cache = {};
+        return;
+      }
+      Object.keys(STATE.cache).forEach(key => {
+        if (key.startsWith(prefix)) delete STATE.cache[key];
+      });
+    }
+
+    // --- DASHBOARD ---
+    function loadDashboard(forceRefresh = false) {
+      withCache('dashboard', 300000, forceRefresh, 
+        cb => google.script.run.withSuccessHandler(cb).getDashboardData(STATE.token),
+        data => {
+          if (data.error) {
+            if (data.error === 'UNAUTHORIZED') handleLogout();
+            else alert('Lỗi load dashboard: ' + data.error);
+            return;
+          }
+          document.getElementById('kpiRevenueToday').innerText = Number(data.kpis.revenueToday).toLocaleString()+'đ';
+          document.getElementById('kpiOrderToday').innerText = data.kpis.orderCountToday;
+          document.getElementById('kpiLowStock').innerText = data.kpis.lowStockCount;
+          document.getElementById('kpiActiveProducts').innerText = data.kpis.activeProducts;
+          document.getElementById('statWeekRevenue').innerText = Number(data.stats.weekRevenue).toLocaleString()+'đ';
+          document.getElementById('statMonthRevenue').innerText = Number(data.stats.monthRevenue).toLocaleString()+'đ';
+          document.getElementById('statMonthOrderCount').innerText = data.stats.monthOrderCount;
+          renderChart(data.chart);
+          const tbody = document.getElementById('recentOrdersTableBody');
+          if (tbody) {
+            tbody.innerHTML = data.recentOrders.length ? data.recentOrders.map(o => `<tr data-search="${(o.order_id + ' ' + o.source).toLowerCase()}"><td>#${o.order_id.split('-').pop()}</td><td><span class="badge badge-info">${o.source}</span></td><td>${Number(o.total).toLocaleString()}đ</td><td><span class="badge badge-${o.status==='completed'?'success':'warning'}">${o.status}</span></td><td>${o.created_at.split(' ')[1]}</td></tr>`).join('') : '<tr><td colspan="5">Chưa có đơn hàng</td></tr>';
+          }
+        }
+      );
     }
     function renderChart(d) {
-      const ctx = document.getElementById('revenueChart').getContext('2d'); if(STATE.chart) STATE.chart.destroy();
-      STATE.chart = new Chart(ctx, { type:'line', data:{ labels:d.labels, datasets:[{label:'Doanh thu', data:d.data, borderColor:'#7C3AED', backgroundColor:'rgba(124,58,237,0.1)', fill:true, tension:0.4}] }, options:{ responsive:true, plugins:{legend:{display:false}} } });
+      if (typeof Chart === "undefined") return;
+      const canvas = document.getElementById("revenueChart");
+      if (!canvas) return;
+
+      // Defer chart rendering to avoid blocking main frame during tab transition
+      requestAnimationFrame(() => {
+        const ctx = canvas.getContext("2d");
+        if (STATE.chart) STATE.chart.destroy();
+        STATE.chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: d.labels,
+            datasets: [
+              {
+                label: "Doanh thu",
+                data: d.data,
+                borderColor: "#7C3AED",
+                backgroundColor: "rgba(124,58,237,0.1)",
+                fill: true,
+                tension: 0.4,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 500 }, // Moderate animation for mobile
+            plugins: { legend: { display: false } },
+          },
+        });
+      });
     }
 
     // --- RAW MATERIALS ---
-    function loadRawMaterials() {
-      google.script.run.withSuccessHandler(data => {
-        STATE.rawMaterials = data;
-        const tbody = document.getElementById('rawMaterialsTableBody');
-        tbody.innerHTML = data.map(m => `<tr><td>${m.name}</td><td>${m.unit}</td><td><span class="badge ${Number(m.stock_qty)<=Number(m.min_stock)?'badge-danger':'badge-success'}">${m.stock_qty}</span></td><td>${m.min_stock}</td><td>${m.supplier_name}</td><td><button class="btn btn-outline" style="padding:4px 8px;" onclick="openRawModal('${m.material_id}')"><i class="fas fa-edit"></i></button></td></tr>`).join('');
-      }).getRawMaterials(STATE.token);
+    function loadRawMaterials(forceRefresh = false) {
+      withCache('raw-materials', 120000, forceRefresh,
+        cb => google.script.run.withSuccessHandler(cb).getRawMaterials(STATE.token),
+        data => {
+          STATE.rawMaterials = data;
+          const tbody = document.getElementById('rawMaterialsTableBody');
+          if (tbody) {
+            tbody.innerHTML = data.map(m => `<tr data-search="${(m.name + ' ' + (m.supplier_name||'')).toLowerCase()}"><td>${m.name}</td><td>${m.unit}</td><td><span class="badge ${Number(m.stock_qty)<=Number(m.min_stock)?'badge-danger':'badge-success'}">${m.stock_qty}</span></td><td>${m.min_stock}</td><td>${m.supplier_name}</td><td><button class="btn btn-outline" style="padding:4px 8px;" onclick="openRawModal('${m.material_id}')"><i class="fas fa-edit"></i></button></td></tr>`).join('');
+          }
+        }
+      );
     }
 
     function openRawModal(id = null) {
@@ -985,29 +1080,47 @@
       e.preventDefault();
       const id = document.getElementById('raw_id').value;
       const data = { name:document.getElementById('raw_name').value, unit:document.getElementById('raw_unit').value, stock_qty:document.getElementById('raw_stock').value, min_stock:document.getElementById('raw_min').value, supplier_id:document.getElementById('raw_supplier').value };
-      if(id) google.script.run.withSuccessHandler(() => { closeModal('rawMaterialModal'); loadRawMaterials(); }).updateRawMaterial(STATE.token, id, data);
-      else google.script.run.withSuccessHandler(() => { closeModal('rawMaterialModal'); loadRawMaterials(); }).createRawMaterial(STATE.token, data);
+      if(id) google.script.run.withSuccessHandler(() => { closeModal('rawMaterialModal'); loadRawMaterials(true); }).updateRawMaterial(STATE.token, id, data);
+      else google.script.run.withSuccessHandler(() => { closeModal('rawMaterialModal'); loadRawMaterials(true); }).createRawMaterial(STATE.token, data);
     }
 
     // --- REFINED ---
-    function loadRefinedMaterials() {
-      google.script.run.withSuccessHandler(data => {
-        document.getElementById('refinedMaterialsTableBody').innerHTML = data.map(m => `<tr><td>${m.name}</td><td>${m.unit}</td><td>${m.stock_qty}</td><td>${m.min_stock}</td><td>-</td></tr>`).join('');
-      }).getRefinedMaterials(STATE.token);
+    function loadRefinedMaterials(forceRefresh = false) {
+      withCache('refined-materials', 120000, forceRefresh,
+        cb => google.script.run.withSuccessHandler(cb).getRefinedMaterials(STATE.token),
+        data => {
+          const tbody = document.getElementById('refinedMaterialsTableBody');
+          if (tbody) {
+            tbody.innerHTML = data.map(m => `<tr data-search="${m.name.toLowerCase()}"><td>${m.name}</td><td>${m.unit}</td><td>${m.stock_qty}</td><td>${m.min_stock}</td><td>-</td></tr>`).join('');
+          }
+        }
+      );
     }
 
     // --- SUPPLIERS ---
-    function loadSuppliers() {
-      google.script.run.withSuccessHandler(data => {
-        document.getElementById('suppliersTableBody').innerHTML = data.map(s => `<tr><td>${s.name}</td><td>${s.phone}</td><td>${s.note}</td><td>-</td></tr>`).join('');
-      }).getSuppliers(STATE.token);
+    function loadSuppliers(forceRefresh = false) {
+      withCache('suppliers', 300000, forceRefresh,
+        cb => google.script.run.withSuccessHandler(cb).getSuppliers(STATE.token),
+        data => {
+          const tbody = document.getElementById('suppliersTableBody');
+          if (tbody) {
+            tbody.innerHTML = data.map(s => `<tr data-search="${(s.name + ' ' + (s.phone||'') + ' ' + (s.note||'')).toLowerCase()}"><td>${s.name}</td><td>${s.phone}</td><td>${s.note}</td><td>-</td></tr>`).join('');
+          }
+        }
+      );
     }
 
     // --- PROCUREMENT ---
-    function loadProcurements() {
-      google.script.run.withSuccessHandler(data => {
-        document.getElementById('procurementTableBody').innerHTML = data.map(p => `<tr><td>#${p.procurement_id.split('-').pop()}</td><td>${p.material_name}</td><td>${p.quantity}</td><td>${Number(p.unit_price).toLocaleString()}</td><td>${(Number(p.quantity)*Number(p.unit_price)).toLocaleString()}</td><td>${p.supplier_name}</td><td>${p.date.split(' ')[0]}</td></tr>`).join('');
-      }).getProcurements(STATE.token);
+    function loadProcurements(forceRefresh = false) {
+      withCache('procurement', 60000, forceRefresh,
+        cb => google.script.run.withSuccessHandler(cb).getProcurements(STATE.token),
+        data => {
+          const tbody = document.getElementById('procurementTableBody');
+          if (tbody) {
+            tbody.innerHTML = data.map(p => `<tr data-search="${(p.material_name + ' ' + (p.supplier_name||'') + ' ' + p.procurement_id).toLowerCase()}"><td>#${p.procurement_id.split('-').pop()}</td><td>${p.material_name}</td><td>${p.quantity}</td><td>${Number(p.unit_price).toLocaleString()}</td><td>${(Number(p.quantity)*Number(p.unit_price)).toLocaleString()}</td><td>${p.supplier_name}</td><td>${p.date.split(' ')[0]}</td></tr>`).join('');
+          }
+        }
+      );
     }
 
     function openProcurementModal() {
@@ -1021,14 +1134,83 @@
     document.getElementById('procurementForm').onsubmit = function(e) {
       e.preventDefault();
       const data = { material_id:document.getElementById('pcr_material').value, quantity:document.getElementById('pcr_qty').value, unit_price:document.getElementById('pcr_price').value, supplier_id:document.getElementById('pcr_supplier').value, date:document.getElementById('pcr_date').value };
-      google.script.run.withSuccessHandler(() => { closeModal('procurementModal'); loadProcurements(); }).createProcurement(STATE.token, data);
+      google.script.run.withSuccessHandler(() => { closeModal('procurementModal'); loadProcurements(true); }).createProcurement(STATE.token, data);
     }
 
     function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+    /**
+     * Optimized table filtering using data-search attribute
+     */
     function filterTable(tbodyId, val) {
-      const rows = document.getElementById(tbodyId).getElementsByTagName('tr');
-      for(let r of rows) r.style.display = r.innerText.toLowerCase().includes(val.toLowerCase()) ? '' : 'none';
+      const tbody = document.getElementById(tbodyId);
+      if (!tbody) return;
+      const searchVal = val.toLowerCase().trim();
+      
+      // Select rows or direct children (for div-based lists like recipeProductList)
+      const rows = (tbody.tagName === 'TBODY' || tbody.tagName === 'TABLE') 
+        ? tbody.getElementsByTagName('tr') 
+        : tbody.children;
+
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        // Optimization: use data-search attribute to avoid forced layout. 
+        // Falls back to textContent if data-search is missing.
+        const searchStr = r.getAttribute('data-search');
+        if (searchStr) {
+          r.style.display = searchStr.includes(searchVal) ? '' : 'none';
+        } else {
+          r.style.display = (r.textContent || '').toLowerCase().includes(searchVal) ? '' : 'none';
+        }
+      }
     }
+
+    // Debounce for search inputs to reduce render storm on mobile
+    const filterTimeouts = {};
+    function debouncedFilterTable(tbodyId, val) {
+      if (filterTimeouts[tbodyId]) clearTimeout(filterTimeouts[tbodyId]);
+      filterTimeouts[tbodyId] = setTimeout(() => {
+        filterTable(tbodyId, val);
+        delete filterTimeouts[tbodyId];
+      }, 200);
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = 'qcf-toast';
+      toast.style.cssText = `
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${type === 'success' ? 'var(--success)' : 'var(--error)'};
+        color: white;
+        padding: 12px 24px;
+        border-radius: var(--radius-pill);
+        box-shadow: var(--shadow-drop);
+        z-index: 10000;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        opacity: 0;
+      `;
+      toast.innerText = message;
+      document.body.appendChild(toast);
+      
+      // Animate in
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.bottom = '100px';
+      });
+
+      // Animate out
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.bottom = '80px';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
     function handleLogout() { sessionStorage.clear(); location.reload(); }
 
     document.getElementById('loginForm').onsubmit = function(e) {
