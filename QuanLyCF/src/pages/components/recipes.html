@@ -1,30 +1,57 @@
 <script>
   let SELECTED_PRODUCT_ID = null;
   let REFINED_MATERIALS = [];
+  let RAW_MATERIALS = [];
 
   /**
    * Khởi tạo trang Công Thức
    */
   function loadRecipesPage() {
-    const list = document.getElementById('recipeProductList');
-    if (list) list.innerHTML = '<div style="padding:12px; color:var(--text-muted); font-size:13px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
+    // Fix table headers dynamically since the template in app.html might be old (4 columns instead of 5)
+    const thead = document.querySelector('#recipesTemplate thead tr');
+    if (thead && thead.cells.length === 4) {
+      thead.innerHTML = `
+        <th style="width: 120px;">Loại</th>
+        <th>Nguyên liệu</th>
+        <th style="width: 100px;">Số lượng</th>
+        <th style="width: 60px;">Đơn vị</th>
+        <th style="width: 50px;"></th>
+      `;
+      // Also fix initial message colspan
+      const initialMsg = document.querySelector('#recipeTableBody td');
+      if (initialMsg) initialMsg.colSpan = 5;
+    }
 
-    google.script.run
-      .withSuccessHandler(data => {
-        if (!data || data.error || !Array.isArray(data)) {
-          if (data && data.error === 'UNAUTHORIZED') { handleLogout(); return; }
-          console.error('Lỗi tải NVL tinh chế:', data && data.error);
-          loadRecipeProductList();
-          return;
-        }
-        REFINED_MATERIALS = data;
-        loadRecipeProductList();
+    const list = document.getElementById('recipeProductList');
+    if (list) list.innerHTML = '<div style="padding:12px; color:var(--text-muted); font-size:13px;"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</div>';
+
+    // Load song song Raw và Refined
+    Promise.all([
+      new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .getRefinedMaterials(STATE.token);
+      }),
+      new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .getRawMaterials(STATE.token);
       })
-      .withFailureHandler(err => {
-        console.error('Lỗi kết nối NVL tinh chế:', err.message);
-        loadRecipeProductList();
-      })
-      .getRefinedMaterials(STATE.token);
+    ]).then(([refined, raw]) => {
+      if (refined.error || raw.error) {
+        if (refined.error === 'UNAUTHORIZED' || raw.error === 'UNAUTHORIZED') { handleLogout(); return; }
+        showToast('Lỗi tải danh sách nguyên liệu', 'error');
+        return;
+      }
+      REFINED_MATERIALS = refined;
+      RAW_MATERIALS = raw;
+      loadRecipeProductList();
+    }).catch(err => {
+      console.error('Lỗi loadRecipesPage:', err);
+      showToast('Lỗi kết nối máy chủ', 'error');
+    });
   }
 
   /**
@@ -74,18 +101,18 @@
     document.getElementById('recipeActions').classList.remove('hidden');
     
     const tbody = document.getElementById('recipeTableBody');
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>';
 
     google.script.run
       .withSuccessHandler(recipe => {
         if (!recipe || recipe.error) {
           if (recipe && recipe.error === 'UNAUTHORIZED') { handleLogout(); return; }
-          tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red; padding:20px;">Lỗi: ${recipe && recipe.error || 'Không xác định'}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red; padding:20px;">Lỗi: ${recipe && recipe.error || 'Không xác định'}</td></tr>`;
           return;
         }
         
         if (!Array.isArray(recipe) || recipe.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:40px; color:var(--text-muted);">Sản phẩm này chưa có công thức. Nhấn "+ Thêm NVL" để bắt đầu.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:40px; color:var(--text-muted);">Sản phẩm này chưa có công thức. Nhấn "+ Thêm NVL" để bắt đầu.</td></tr>';
         } else {
           tbody.innerHTML = '';
           const fragment = document.createDocumentFragment();
@@ -94,7 +121,7 @@
         }
       })
       .withFailureHandler(err => {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red; padding:20px;">Lỗi kết nối: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red; padding:20px;">Lỗi kết nối: ${err.message}</td></tr>`;
       })
       .getRecipeByProduct(STATE.token, productId);
   }
@@ -112,27 +139,29 @@
     }
 
     const tr = document.createElement('tr');
-    
-    let options = REFINED_MATERIALS.map(m => `
-      <option value="${m.refined_id}" data-unit="${m.unit}" ${data && String(data.refined_id) === String(m.refined_id) ? 'selected' : ''}>
-        ${m.name}
-      </option>
-    `).join('');
+    const matType = data ? data.material_type : 'refined';
+    const matId = data ? data.material_id : '';
 
     tr.innerHTML = `
-      <td>
-        <select class="form-control ing-id" onchange="updateRowUnit(this)">
-          <option value="">-- Chọn nguyên liệu --</option>
-          ${options}
+      <td style="width: 120px;">
+        <select class="form-control ing-type" onchange="updateMaterialOptions(this)">
+          <option value="refined" ${matType === 'refined' ? 'selected' : ''}>Tinh chế</option>
+          <option value="raw" ${matType === 'raw' ? 'selected' : ''}>Thô</option>
         </select>
       </td>
       <td>
+        <select class="form-control ing-id" onchange="updateRowUnit(this)">
+          <option value="">-- Chọn nguyên liệu --</option>
+          ${generateMaterialOptions(matType, matId)}
+        </select>
+      </td>
+      <td style="width: 100px;">
         <input type="number" class="form-control ing-qty" value="${data ? data.quantity : 1}" step="any" min="0">
       </td>
-      <td class="ing-unit" style="vertical-align: middle; color:var(--text-muted); font-size:13px;">
+      <td class="ing-unit" style="width: 60px; vertical-align: middle; color:var(--text-muted); font-size:13px;">
         ${data ? data.unit : '-'}
       </td>
-      <td style="text-align:right;">
+      <td style="text-align:right; width: 50px;">
         <button class="btn btn-outline" style="color:var(--error); border:none; padding:8px;" onclick="this.closest('tr').remove()">
           <i class="fas fa-trash"></i>
         </button>
@@ -147,12 +176,38 @@
   }
 
   /**
+   * Sinh danh sách option nguyên liệu dựa trên loại
+   */
+  function generateMaterialOptions(type, selectedId = '') {
+    const list = type === 'raw' ? RAW_MATERIALS : REFINED_MATERIALS;
+    const idKey = type === 'raw' ? 'material_id' : 'refined_id';
+    
+    return list.map(m => `
+      <option value="${m[idKey]}" data-unit="${m.unit}" ${String(selectedId) === String(m[idKey]) ? 'selected' : ''}>
+        ${m.name}
+      </option>
+    `).join('');
+  }
+
+  /**
+   * Cập nhật danh sách nguyên liệu khi đổi loại
+   */
+  function updateMaterialOptions(typeSelect) {
+    const tr = typeSelect.closest('tr');
+    const idSelect = tr.querySelector('.ing-id');
+    const type = typeSelect.value;
+    
+    idSelect.innerHTML = '<option value="">-- Chọn nguyên liệu --</option>' + generateMaterialOptions(type);
+    updateRowUnit(idSelect);
+  }
+
+  /**
    * Cập nhật đơn vị
    */
   function updateRowUnit(select) {
     const unitCell = select.closest('tr').querySelector('.ing-unit');
     const selectedOption = select.options[select.selectedIndex];
-    const unit = selectedOption.getAttribute('data-unit');
+    const unit = selectedOption ? selectedOption.getAttribute('data-unit') : '';
     unitCell.innerText = unit || '-';
   }
 
@@ -167,19 +222,22 @@
     let isValid = true;
 
     rows.forEach(row => {
+      const typeEl = row.querySelector('.ing-type');
       const idEl = row.querySelector('.ing-id');
       const qtyEl = row.querySelector('.ing-qty');
       const unitEl = row.querySelector('.ing-unit');
       
-      if (!idEl || !qtyEl) return;
+      if (!typeEl || !idEl || !qtyEl) return;
 
+      const type = typeEl.value;
       const id = idEl.value;
       const qty = qtyEl.value;
       const unit = unitEl.innerText;
 
       if (id && qty > 0) {
         ingredients.push({
-          refined_id: id,
+          material_type: type,
+          material_id: id,
           quantity: Number(qty),
           unit: unit
         });

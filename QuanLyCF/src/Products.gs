@@ -131,14 +131,28 @@ function getRecipeByProduct(token, productId) {
     
     const recipes = getSheetData('RECIPES') || [];
     const refined = getSheetData('REFINED_MATERIALS') || [];
+    const raw = getSheetData('RAW_MATERIALS') || [];
     
     const productRecipe = recipes.filter(r => String(r.product_id) === String(productId));
     
     return productRecipe.map(r => {
-      const mat = refined.find(m => String(m.refined_id) === String(r.refined_id));
+      // DUAL-SCHEMA COMPATIBILITY: Hỗ trợ cả schema cũ (refined_id) và mới (material_type, material_id)
+      const type = r.material_type || (r.refined_id ? 'refined' : (r.raw_material_id ? 'raw' : 'refined'));
+      const matId = r.material_id || r.refined_id || r.raw_material_id;
+      
+      let mat = null;
+      if (type === 'raw') {
+        mat = raw.find(m => String(m.material_id) === String(matId));
+      } else {
+        mat = refined.find(m => String(m.refined_id) === String(matId));
+      }
+
       return {
         ...r,
-        refined_name: mat ? mat.name : 'N/A'
+        material_type: type,
+        material_id: matId,
+        material_name: mat ? mat.name : 'N/A',
+        unit: mat ? mat.unit : (r.unit || '')
       };
     });
   } catch(e) {
@@ -161,11 +175,52 @@ function saveRecipe(token, productId, ingredients) {
       const sheet = getSheet('RECIPES');
       const values = sheet.getDataRange().getValues();
       const headers = values[0];
-      const productIdCol = headers.indexOf('product_id');
       
-      // 1. Xóa công thức cũ
-      for (let i = values.length - 1; i >= 1; i--) {
-        if (String(values[i][productIdCol]) === String(productId)) {
+      // Đảm bảo schema mới: recipe_id, product_id, material_type, material_id, quantity, unit
+      const newHeaders = ['recipe_id', 'product_id', 'material_type', 'material_id', 'quantity', 'unit'];
+      const isOldSchema = !headers.includes('material_type');
+      
+      if (isOldSchema) {
+        // SAFE MIGRATION: Nếu là old schema (legacy), thực hiện chuyển đổi toàn bộ row cũ sang cấu trúc mới
+        // để tránh tình trạng chỉ đổi header làm lệch cột dữ liệu của các sản phẩm khác.
+        const refinedIdIdx = headers.indexOf('refined_id');
+        const rawMatIdIdx = headers.indexOf('raw_material_id');
+        const recipeIdIdx = headers.indexOf('recipe_id');
+        const productIdIdx = headers.indexOf('product_id');
+        const qtyIdx = headers.indexOf('quantity');
+        const unitIdx = headers.indexOf('unit');
+        
+        const migratedRows = [];
+        for (let i = 1; i < values.length; i++) {
+          const row = values[i];
+          const matType = refinedIdIdx >= 0 && row[refinedIdIdx] ? 'refined' : (rawMatIdIdx >= 0 && row[rawMatIdIdx] ? 'raw' : 'refined');
+          const matId = (refinedIdIdx >= 0 ? row[refinedIdIdx] : (rawMatIdIdx >= 0 ? row[rawMatIdIdx] : ''));
+          
+          migratedRows.push([
+            row[recipeIdIdx],
+            row[productIdIdx],
+            matType,
+            matId,
+            row[qtyIdx],
+            row[unitIdx]
+          ]);
+        }
+        
+        sheet.clearContents();
+        sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+        if (migratedRows.length > 0) {
+          sheet.getRange(2, 1, migratedRows.length, newHeaders.length).setValues(migratedRows);
+        }
+      }
+
+      // Đọc lại dữ liệu sau khi migrate (nếu có)
+      const updatedValues = sheet.getDataRange().getValues();
+      const updatedHeaders = updatedValues[0];
+      const productIdCol = updatedHeaders.indexOf('product_id');
+      
+      // 1. Xóa công thức cũ của sản phẩm này
+      for (let i = updatedValues.length - 1; i >= 1; i--) {
+        if (String(updatedValues[i][productIdCol]) === String(productId)) {
           sheet.deleteRow(i + 1);
         }
       }
@@ -173,13 +228,15 @@ function saveRecipe(token, productId, ingredients) {
       // 2. Thêm công thức mới
       ingredients.forEach(ing => {
         const id = generateId('RCP');
-        sheet.appendRow([
-          id,
-          productId,
-          ing.refined_id,
-          ing.quantity,
-          ing.unit
-        ]);
+        const row = new Array(newHeaders.length);
+        row[updatedHeaders.indexOf('recipe_id')] = id;
+        row[updatedHeaders.indexOf('product_id')] = productId;
+        row[updatedHeaders.indexOf('material_type')] = ing.material_type || 'refined';
+        row[updatedHeaders.indexOf('material_id')] = ing.material_id;
+        row[updatedHeaders.indexOf('quantity')] = ing.quantity;
+        row[updatedHeaders.indexOf('unit')] = ing.unit;
+        
+        sheet.appendRow(row);
       });
       
       return { success: true };

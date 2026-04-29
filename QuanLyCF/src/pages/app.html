@@ -753,6 +753,17 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="supplierModal">
+    <div class="modal-card">
+      <div class="modal-header"><h3>Thêm Nhà Cung Cấp</h3><button onclick="closeModal('supplierModal')">&times;</button></div>
+      <form id="supplierForm"><div class="modal-body">
+        <div class="form-group"><label>Tên Nhà Cung Cấp (*)</label><input type="text" id="sup_name" class="form-control" required></div>
+        <div class="form-group"><label>Số điện thoại</label><input type="text" id="sup_phone" class="form-control"></div>
+        <div class="form-group"><label>Ghi chú</label><textarea id="sup_note" class="form-control" style="height:80px;"></textarea></div>
+      </div><div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('supplierModal')">Hủy</button><button type="submit" class="btn btn-primary">Lưu NCC</button></div></form>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="editAttendanceModal">
     <div class="modal-card">
       <div class="modal-header"><h3>Sửa công chấm</h3><button onclick="closeModal('editAttendanceModal')">&times;</button></div>
@@ -871,7 +882,13 @@
       }
       else if (id === 'suppliers') {
         body.innerHTML = document.getElementById('suppliersTemplate').innerHTML;
-        if(isEditor) document.getElementById('supplierActions').innerHTML = `<button class="btn btn-primary" onclick="openSupplierModal()">+ Thêm NCC</button>`;
+        // HOOK: Binding "+ Them NCC" button to openSupplierModal()
+        if(isEditor) {
+          const actions = document.getElementById('supplierActions');
+          if (actions) {
+            actions.innerHTML = `<button class="btn btn-primary" onclick="openSupplierModal()">+ Thêm NCC</button>`;
+          }
+        }
         loadSuppliers();
       }
       else if (id === 'procurement') {
@@ -1060,8 +1077,14 @@
 
     function openRawModal(id = null) {
       google.script.run.withSuccessHandler(sups => {
+        if (sups && sups.error) {
+          showToast('Lỗi load NCC: ' + sups.error, 'error');
+          return;
+        }
         const select = document.getElementById('raw_supplier');
-        select.innerHTML = sups.map(s => `<option value="${s.supplier_id}">${s.name}</option>`).join('');
+        if (select) {
+          select.innerHTML = (sups || []).map(s => `<option value="${s.supplier_id}">${s.name}</option>`).join('');
+        }
         const form = document.getElementById('rawMaterialForm'); form.reset();
         document.getElementById('raw_id').value = id || '';
         if(id) {
@@ -1102,12 +1125,53 @@
       withCache('suppliers', 300000, forceRefresh,
         cb => google.script.run.withSuccessHandler(cb).getSuppliers(STATE.token),
         data => {
+          if (data && data.error) {
+            showToast('Lỗi load NCC: ' + data.error, 'error');
+            return;
+          }
+          STATE.suppliers = data || [];
           const tbody = document.getElementById('suppliersTableBody');
           if (tbody) {
-            tbody.innerHTML = data.map(s => `<tr data-search="${(s.name + ' ' + (s.phone||'') + ' ' + (s.note||'')).toLowerCase()}"><td>${s.name}</td><td>${s.phone}</td><td>${s.note}</td><td>-</td></tr>`).join('');
+            tbody.innerHTML = STATE.suppliers.map(s => `<tr data-search="${(s.name + ' ' + (s.phone||'') + ' ' + (s.note||'')).toLowerCase()}"><td>${s.name}</td><td>${s.phone}</td><td>${s.note}</td><td>-</td></tr>`).join('');
           }
         }
       );
+    }
+
+    function openSupplierModal() {
+      document.getElementById('supplierForm').reset();
+      document.getElementById('supplierModal').classList.add('open');
+    }
+
+    document.getElementById('supplierForm').onsubmit = function(e) {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+
+      const data = {
+        name: document.getElementById('sup_name').value,
+        phone: document.getElementById('sup_phone').value,
+        note: document.getElementById('sup_note').value
+      };
+      google.script.run.withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if(res.error) {
+          showToast('Lỗi: ' + res.error, 'error');
+        } else {
+          closeModal('supplierModal');
+          showToast('Đã thêm nhà cung cấp thành công');
+          invalidateCache('suppliers');
+          invalidateCache('raw-materials');
+          loadSuppliers(true);
+        }
+      }).withFailureHandler(err => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        showToast('Lỗi kết nối: ' + err.message, 'error');
+      }).createSupplier(STATE.token, data);
     }
 
     // --- PROCUREMENT ---

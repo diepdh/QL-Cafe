@@ -5,6 +5,9 @@
       <select id="productCategoryFilter" class="form-control" style="width:180px;" onchange="filterProductsByCategory(this.value)">
         <option value="">Tất cả danh mục</option>
       </select>
+      <button class="btn btn-outline" style="padding:8px 12px;" onclick="openCategoryModal()" title="Thêm danh mục mới">
+        <i class="fas fa-folder-plus"></i>
+      </button>
     </div>
     <div id="productActions"></div>
   </div>
@@ -44,7 +47,10 @@
         </div>
         <div class="form-group">
           <label>Danh mục (*)</label>
-          <select id="prd_category" class="form-control" required></select>
+          <div style="display:flex; gap:8px;">
+            <select id="prd_category" class="form-control" required></select>
+            <button type="button" class="btn btn-outline" style="padding:8px; min-width:40px;" onclick="openCategoryModal()" title="Thêm danh mục mới"><i class="fas fa-plus"></i></button>
+          </div>
         </div>
         <div class="form-group">
           <label>Giá bán (*)</label>
@@ -66,6 +72,28 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" onclick="closeModal('productModal')">Hủy</button>
         <button type="submit" class="btn btn-primary" id="btnSaveProduct">Lưu thông tin</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Thêm Danh Mục Mới -->
+<div class="modal-overlay" id="categoryModal">
+  <div class="modal-card" style="max-width: 400px;">
+    <div class="modal-header">
+      <h3>Thêm Danh Mục Mới</h3>
+      <button onclick="closeModal('categoryModal')">&times;</button>
+    </div>
+    <form id="categoryForm">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Tên danh mục (*)</label>
+          <input type="text" id="cat_name" class="form-control" required placeholder="Ví dụ: Đồ uống nóng">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('categoryModal')">Hủy</button>
+        <button type="submit" class="btn btn-primary" id="btnSaveCategory">Lưu danh mục</button>
       </div>
     </form>
   </div>
@@ -251,5 +279,55 @@
     } else {
       google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).createProduct(STATE.token, data);
     }
+  };
+
+  /**
+   * Category Creation Logic
+   */
+  function openCategoryModal() {
+    const form = document.getElementById('categoryForm');
+    if (form) form.reset();
+    document.getElementById('categoryModal').classList.add('open');
+    setTimeout(() => {
+      const input = document.getElementById('cat_name');
+      if (input) input.focus();
+    }, 100);
+  }
+
+  document.getElementById('categoryForm').onsubmit = function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveCategory');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+
+    const data = {
+      name: document.getElementById('cat_name').value,
+      sort_order: 0
+    };
+
+    google.script.run.withSuccessHandler((res) => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      if (!res || res.error) {
+        alert('Lỗi: ' + (res && res.error || 'Không xác định'));
+      } else {
+        closeModal('categoryModal');
+        // Refresh categories across app
+        invalidateCache('categories');
+        loadProductCategories(() => {
+          // If we were in the product modal, select the new category
+          const prdCat = document.getElementById('prd_category');
+          if (prdCat) prdCat.value = res.category_id;
+          
+          // Show success message if available
+          if (typeof showToast === 'function') showToast('Đã thêm danh mục: ' + data.name);
+        }, true);
+      }
+    }).withFailureHandler((err) => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      alert('Lỗi kết nối: ' + err.message);
+    }).createCategory(STATE.token, data);
   };
 </script>

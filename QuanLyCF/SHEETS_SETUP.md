@@ -78,10 +78,10 @@ Anh hãy tạo các sheet sau trong Google Spreadsheet **"QuanLyCF-DB"** và cop
 
 ## 8. Sheet: `RECIPES`
 **Headers (Row 1):**
-`recipe_id` | `product_id` | `refined_id` | `quantity` | `unit`
+`recipe_id` | `product_id` | `material_type` | `material_id` | `quantity` | `unit`
 
 **Seed Data:**
-`REC-001` | `PRD-001` | `REF-001` | `50` | `ml`
+`REC-001` | `PRD-001` | `refined` | `REF-001` | `50` | `ml`
 
 ---
 

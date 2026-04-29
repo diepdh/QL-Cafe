@@ -138,10 +138,16 @@ function getSuppliers(token) {
   }
 }
 
+/**
+ * Thêm Nhà Cung Cấp mới
+ */
 function createSupplier(token, data) {
   try {
     const user = validateSession(token);
     if (!user || !['admin', 'manager'].includes(user.role)) return { error: 'UNAUTHORIZED' };
+    
+    if (!data.name) return { error: 'Tên nhà cung cấp là bắt buộc' };
+    
     const id = generateId('SUP');
     appendRow('SUPPLIERS', [id, data.name, data.phone || '', data.note || '']);
     return { success: true, supplier_id: id };
